@@ -1,26 +1,336 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-htb-bg: #0a0e14;
+  --color-htb-bg-elevated: #11161d;
+  --color-htb-bg-card: #0f1419;
+  --color-htb-bg-hover: #1a212b;
+  --color-htb-border: #1f2937;
+  --color-htb-border-bright: #2d3748;
+  --color-htb-text: #d4d4d4;
+  --color-htb-text-muted: #8b95a5;
+  --color-htb-text-dim: #5a6473;
+  --color-htb-green: #9fef00;
+  --color-htb-green-dim: #7ab800;
+  --color-htb-green-dark: #4a6b00;
+  --color-htb-red: #ff4d4f;
+  --color-htb-amber: #ffaa00;
+  --color-htb-cyan: #00d4ff;
+  --color-htb-purple: #a855f7;
+  --color-htb-magenta: #ff2e63;
+  --color-htb-blue: #3b82f6;
+
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
+  --font-display: var(--font-jetbrains-mono), "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  * {
+    border-color: var(--color-htb-border);
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  html, body {
+    background-color: var(--color-htb-bg);
+    color: var(--color-htb-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-image:
+      radial-gradient(ellipse at top, rgba(159, 239, 0, 0.04) 0%, transparent 50%),
+      linear-gradient(to bottom, var(--color-htb-bg) 0%, var(--color-htb-bg) 100%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background-color: var(--color-htb-green);
+    color: var(--color-htb-bg);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-htb-bg);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-htb-border-bright);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-htb-green-dark);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .htb-card {
+    background-color: var(--color-htb-bg-card);
+    border: 1px solid var(--color-htb-border);
+    border-radius: 4px;
+    transition: border-color 150ms ease, transform 150ms ease;
+  }
+
+  .htb-card:hover {
+    border-color: var(--color-htb-green-dark);
+  }
+
+  .htb-card-interactive {
+    cursor: pointer;
+  }
+
+  .htb-card-interactive:hover {
+    transform: translateY(-2px);
+  }
+
+  .htb-glow {
+    text-shadow: 0 0 12px rgba(159, 239, 0, 0.4);
+  }
+
+  .htb-glow-sm {
+    text-shadow: 0 0 6px rgba(159, 239, 0, 0.3);
+  }
+
+  .htb-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-radius: 3px;
+    transition: all 150ms ease;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .htb-button-primary {
+    background-color: var(--color-htb-green);
+    color: var(--color-htb-bg);
+    border: 1px solid var(--color-htb-green);
+  }
+
+  .htb-button-primary:hover {
+    background-color: var(--color-htb-green-dim);
+    box-shadow: 0 0 18px rgba(159, 239, 0, 0.35);
+  }
+
+  .htb-button-secondary {
+    background-color: transparent;
+    color: var(--color-htb-green);
+    border: 1px solid var(--color-htb-green);
+  }
+
+  .htb-button-secondary:hover {
+    background-color: rgba(159, 239, 0, 0.08);
+    box-shadow: 0 0 12px rgba(159, 239, 0, 0.2);
+  }
+
+  .htb-button-ghost {
+    background-color: transparent;
+    color: var(--color-htb-text);
+    border: 1px solid var(--color-htb-border-bright);
+  }
+
+  .htb-button-ghost:hover {
+    background-color: var(--color-htb-bg-hover);
+    border-color: var(--color-htb-green-dark);
+  }
+
+  .htb-button-danger {
+    background-color: var(--color-htb-red);
+    color: white;
+    border: 1px solid var(--color-htb-red);
+  }
+
+  .htb-button-danger:hover {
+    background-color: #e63940;
+  }
+
+  .htb-input {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    background-color: var(--color-htb-bg);
+    border: 1px solid var(--color-htb-border);
+    color: var(--color-htb-text);
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    border-radius: 3px;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+
+  .htb-input:focus {
+    outline: none;
+    border-color: var(--color-htb-green);
+    box-shadow: 0 0 0 1px var(--color-htb-green), 0 0 12px rgba(159, 239, 0, 0.2);
+  }
+
+  .htb-input::placeholder {
+    color: var(--color-htb-text-dim);
+  }
+
+  .htb-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-htb-text-muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .htb-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.1875rem 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-radius: 2px;
+    border: 1px solid;
+  }
+
+  .htb-badge-green {
+    color: var(--color-htb-green);
+    border-color: var(--color-htb-green-dark);
+    background-color: rgba(159, 239, 0, 0.06);
+  }
+
+  .htb-badge-red {
+    color: var(--color-htb-red);
+    border-color: rgba(255, 77, 79, 0.3);
+    background-color: rgba(255, 77, 79, 0.06);
+  }
+
+  .htb-badge-amber {
+    color: var(--color-htb-amber);
+    border-color: rgba(255, 170, 0, 0.3);
+    background-color: rgba(255, 170, 0, 0.06);
+  }
+
+  .htb-badge-cyan {
+    color: var(--color-htb-cyan);
+    border-color: rgba(0, 212, 255, 0.3);
+    background-color: rgba(0, 212, 255, 0.06);
+  }
+
+  .htb-badge-purple {
+    color: var(--color-htb-purple);
+    border-color: rgba(168, 85, 247, 0.3);
+    background-color: rgba(168, 85, 247, 0.06);
+  }
+
+  .htb-divider {
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--color-htb-border-bright),
+      transparent
+    );
+  }
+
+  .htb-grid-bg {
+    background-image:
+      linear-gradient(rgba(159, 239, 0, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(159, 239, 0, 0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .htb-terminal-prompt::before {
+    content: "$ ";
+    color: var(--color-htb-green);
+    font-weight: 700;
+  }
+
+  .htb-mono {
+    font-family: var(--font-mono);
+  }
+
+  .htb-heading {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .htb-scanline {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .htb-scanline::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      transparent 50%,
+      rgba(159, 239, 0, 0.02) 50%,
+      rgba(159, 239, 0, 0.02) 51%,
+      transparent 51%
+    );
+    background-size: 100% 4px;
+    pointer-events: none;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .htb-stripe-bg {
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      rgba(159, 239, 0, 0.03) 10px,
+      rgba(159, 239, 0, 0.03) 20px
+    );
+  }
+}
+
+@keyframes htb-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes htb-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes htb-flicker {
+  0%, 100% { opacity: 1; }
+  41% { opacity: 1; }
+  42% { opacity: 0.85; }
+  43% { opacity: 1; }
+  45% { opacity: 0.4; }
+  46% { opacity: 1; }
+}
+
+.animate-htb-pulse {
+  animation: htb-pulse 2s ease-in-out infinite;
+}
+
+.animate-htb-blink {
+  animation: htb-blink 1s steps(2) infinite;
+}
+
+.animate-htb-flicker {
+  animation: htb-flicker 4s linear infinite;
 }
