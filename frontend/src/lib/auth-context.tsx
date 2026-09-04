@@ -4,12 +4,13 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 import type { User, AuthResponse } from "@/lib/types";
-import { api } from "@/lib/api";
+import { api, configureApi } from "@/lib/api";
 
 interface AuthState {
   user: User | null;
@@ -31,44 +32,60 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const STORAGE_KEY = "ccp.auth";
 
-function readStoredState(): { user: User | null; token: string | null } {
-  if (typeof window === "undefined") return { user: null, token: null };
+interface StoredAuth {
+  user: User;
+  token: string;
+}
+
+function readInitialState(): AuthState {
+  if (typeof window === "undefined") {
+    return { user: null, token: null, loading: true };
+  }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { user: null, token: null };
-    const parsed = JSON.parse(raw) as { user: User | null; token: string | null };
-    return { user: parsed.user, token: parsed.token };
+    if (!raw) return { user: null, token: null, loading: false };
+    const parsed = JSON.parse(raw) as { user: User; token: string };
+    return {
+      user: parsed.user,
+      token: parsed.token,
+      loading: false,
+    };
   } catch {
-    return { user: null, token: null };
+    return { user: null, token: null, loading: false };
+  }
+}
+
+function decodeJwtSubject(token: string): string | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const payload = parts[1];
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    const parsed = JSON.parse(json) as { sub?: string };
+    return parsed.sub ?? null;
+  } catch {
+    return null;
   }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [hydrated, setHydrated] = useState(false);
-  const [stored, setStored] = useState<{
-    user: User | null;
-    token: string | null;
-  }>({ user: null, token: null });
+  const [state, setState] = useState<AuthState>(readInitialState);
 
-  if (!hydrated && typeof window !== "undefined") {
-    const next = readStoredState();
-    if (next.user !== stored.user || next.token !== stored.token) {
-      setStored(next);
+  useEffect(() => {
+    configureApi({
+      getToken: () => state.token,
+    });
+  }, [state.token]);
+
+  const setAuth = useCallback((stored: StoredAuth | null) => {
+    if (stored) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+      setState({ user: stored.user, token: stored.token, loading: false });
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+      setState({ user: null, token: null, loading: false });
     }
-    setHydrated(true);
-  }
-
-  const setAuth = useCallback(
-    (next: { user: User | null; token: string | null }) => {
-      setStored(next);
-      if (next.user && next.token) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } else {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    },
-    [],
-  );
+  }, []);
 
   const signin = useCallback(
     async (email: string, password: string) => {
@@ -76,8 +93,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
       });
+      if (!res?.accessToken) {
+        throw new Error("signin response missing accessToken");
+      }
+      const id = decodeJwtSubject(res.accessToken) ?? "";
       const user: User = {
-        id: res.accessToken.split(".")[0] || "",
+        id,
         username: email.split("@")[0],
         email,
       };
@@ -93,8 +114,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         password,
       });
+      if (!res?.accessToken) {
+        throw new Error("signup response missing accessToken");
+      }
+      const id = decodeJwtSubject(res.accessToken) ?? "";
       const user: User = {
-        id: res.accessToken.split(".")[0] || "",
+        id,
         username,
         email,
       };
@@ -104,19 +129,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signout = useCallback(() => {
-    setAuth({ user: null, token: null });
+    setAuth(null);
   }, [setAuth]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({
-      user: stored.user,
-      token: stored.token,
-      loading: !hydrated,
-      signin,
-      signup,
-      signout,
-    }),
-    [stored, hydrated, signin, signup, signout],
+    () => ({ ...state, signin, signup, signout }),
+    [state, signin, signup, signout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -18,6 +18,25 @@ const FONT_SIZE: Record<"sm" | "md" | "lg", string> = {
   lg: "text-sm",
 };
 
+const PALETTE = [
+  "#9fef00",
+  "#00d4ff",
+  "#a855f7",
+  "#ff2e63",
+  "#ffaa00",
+  "#ff4d4f",
+  "#3b82f6",
+  "#10b981",
+];
+
+function colorFromName(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  }
+  return PALETTE[Math.abs(hash) % PALETTE.length];
+}
+
 export function MemberAvatar({
   name,
   color,
@@ -31,13 +50,13 @@ export function MemberAvatar({
 }) {
   const px = SIZE_PX[size];
   const initials = name
-    .split(/[_\s-]/)
+    .split(/[_\s.-]/)
     .filter(Boolean)
     .slice(0, 2)
     .map((s) => s[0]?.toUpperCase())
     .join("");
 
-  const bg = color ?? "#9fef00";
+  const bg = color ?? colorFromName(name);
 
   return (
     <div

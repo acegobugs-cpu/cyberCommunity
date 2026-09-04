@@ -14,24 +14,26 @@ const TONE: Record<Stat["tone"], string> = {
 
 export function StatsBar({
   memberCount,
+  onlineCount,
   eventCount,
   announcementCount,
 }: {
   memberCount: number;
+  onlineCount: number;
   eventCount: number;
   announcementCount: number;
 }) {
-  const computed: Stat[] = [
+  const items: Stat[] = [
     {
       label: "members",
       value: memberCount.toLocaleString(),
-      sub: "+24 this week",
+      sub: `${onlineCount} online now`,
       tone: "green",
     },
     {
       label: "active events",
       value: String(eventCount),
-      sub: "2 ending soon",
+      sub: "join anytime",
       tone: "cyan",
     },
     {
@@ -47,11 +49,8 @@ export function StatsBar({
     <section className="border-b border-htb-border bg-htb-bg-elevated">
       <div className="mx-auto max-w-7xl px-6 py-8">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-htb-border rounded">
-          {computed.map((s, i) => (
-            <div
-              key={s.label}
-              className="bg-htb-bg-elevated px-6 py-5"
-            >
+          {items.map((s, i) => (
+            <div key={s.label} className="bg-htb-bg-elevated px-6 py-5">
               <div className="htb-mono text-[0.65rem] uppercase tracking-widest text-htb-text-dim">
                 {`> ${s.label}`}
               </div>

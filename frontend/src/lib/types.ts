@@ -1,7 +1,7 @@
 export type UUID = string;
 
 export interface User {
-  id: UUID;
+  id: string;
   username: string;
   email: string;
 }
@@ -24,36 +24,22 @@ export interface SigninRequest {
 }
 
 export interface Member {
-  id: UUID;
+  service_name: string;
   username: string;
   email: string;
-  rank: number;
-  points: number;
+  role: string;
+  created_at: string;
 }
 
 export interface PortalInfo {
-  [key: string]: string;
+  userId: string;
+  serviceName: string;
+  role: string;
+  message: string;
 }
 
-export interface Tenant {
-  id: string;
-  name: string;
-  university: string;
-  description: string;
-  ownerId: UUID;
-  memberCount: number;
-  createdAt: string;
-  tags: string[];
-  isPublic: boolean;
-}
-
-export interface Setting {
-  tenantId: string;
-  allowSelfSignup: boolean;
-  allowInvites: boolean;
-  theme: "hacker" | "neon" | "dark";
-  requireUniversityEmail: boolean;
-  primaryColor: string;
-  emailNotifications: boolean;
-  discordWebhook?: string;
+export interface SettingData {
+  theme: string;
+  notifications_enabled: boolean;
+  language_code: string;
 }

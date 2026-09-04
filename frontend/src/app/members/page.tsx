@@ -1,35 +1,24 @@
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { MemberAvatar } from "@/components/member-avatar";
-
-type Member = {
-  id: string;
-  username: string;
-  email: string;
-  rank: number;
-  points: number;
-  avatarColor: string;
-  status: "online" | "offline" | "away";
-  country: string;
-  skills: string[];
-  role?: string;
-};
+import type { EnrichedMember } from "@/lib/enriched-types";
 
 export const dynamic = "force-dynamic";
 
 export default async function MembersPage() {
-  let members: Member[] = [];
+  let members: EnrichedMember[] = [];
   try {
-    members = await api.get<Member[]>("/api/users");
+    members = await api.get<EnrichedMember[]>("/api/members");
   } catch {
     members = [];
   }
 
   const sorted = [...members].sort((a, b) => a.rank - b.rank);
+  const online = members.filter((m) => m.status === "online").length;
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10 w-full">
-      <div className="mb-8 flex items-end justify-between">
+      <div className="mb-8 flex items-end justify-between gap-4">
         <div>
           <div className="htb-mono text-xs uppercase tracking-widest text-htb-text-dim">
             &gt; ./members --list
@@ -39,14 +28,14 @@ export default async function MembersPage() {
             <span className="text-htb-green htb-mono"> [{members.length}]</span>
           </h1>
           <p className="htb-mono text-sm text-htb-text-muted mt-2">
-            Members of the Cyber Club tenant, ranked by points this season.
+            Members of the portal tenant, enriched with platform profiles.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="htb-badge htb-badge-green">
             <span className="h-1.5 w-1.5 rounded-full bg-htb-green animate-htb-pulse" />
-            {members.filter((m) => m.status === "online").length} online
+            {online} online
           </span>
         </div>
       </div>
@@ -63,7 +52,7 @@ export default async function MembersPage() {
 
         {sorted.map((m, i) => (
           <Link
-            key={m.id}
+            key={m.email}
             href="#"
             className="grid grid-cols-12 gap-2 px-5 py-3 items-center border-b border-htb-border last:border-b-0 hover:bg-htb-bg-hover transition-colors"
           >
@@ -73,7 +62,7 @@ export default async function MembersPage() {
             <div className="col-span-4 flex items-center gap-3 min-w-0">
               <MemberAvatar
                 name={m.username}
-                color={m.avatarColor}
+                color={m.avatarColor ?? undefined}
                 size="md"
               />
               <div className="min-w-0">
@@ -86,9 +75,7 @@ export default async function MembersPage() {
               </div>
             </div>
             <div className="col-span-2">
-              <span className="htb-badge htb-badge-cyan">
-                {m.role ?? "MEMBER"}
-              </span>
+              <span className="htb-badge htb-badge-cyan">{m.role}</span>
             </div>
             <div className="col-span-2 htb-mono text-xs text-htb-text-muted">
               {m.country}
@@ -109,6 +96,12 @@ export default async function MembersPage() {
             </div>
           </Link>
         ))}
+
+        {sorted.length === 0 && (
+          <div className="px-5 py-10 text-center htb-mono text-xs text-htb-text-dim">
+            no members to display — the gateway may be offline
+          </div>
+        )}
       </div>
     </main>
   );

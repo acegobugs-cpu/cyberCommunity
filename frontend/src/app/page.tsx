@@ -1,69 +1,42 @@
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { TerminalBlock } from "@/components/terminal-block";
-import { StatsBar } from "@/components/stats-bar";
 import { ActivityFeed } from "@/components/activity-feed";
-import { AnnouncementCard } from "@/components/announcement-card";
 import { MemberAvatar } from "@/components/member-avatar";
+import { AnnouncementCard } from "@/components/announcement-card";
 import { EventCard } from "@/components/event-card";
-import { mockDb } from "@/lib/mock-data";
-import type {
-  MockAnnouncement,
-  MockEvent,
-  MockSetting,
-} from "@/lib/mock-data";
-
-type MemberRow = {
-  id: string;
-  username: string;
-  email: string;
-  rank: number;
-  points: number;
-  avatarColor: string;
-  status: "online" | "offline" | "away";
-  country: string;
-  skills: string[];
-  role?: string;
-};
+import { StatsBar } from "@/components/stats-bar";
+import type { PortalInfo } from "@/lib/types";
+import type { EnrichedMember } from "@/lib/enriched-types";
+import type { MockAnnouncement, MockEvent } from "@/lib/mock-data";
 
 export const dynamic = "force-dynamic";
 
 async function fetchData() {
-  const [info, members, announcements, events, settings, portalInfo] =
-    await Promise.allSettled([
-      api.get<unknown>("/api/portal/info"),
-      api.get<unknown>("/api/users"),
-      api.get<MockAnnouncement[]>("/api/announcements"),
-      api.get<MockEvent[]>("/api/events"),
-      api.get<MockSetting>("/api/setting"),
-      api.get<unknown>("/api/portal/info"),
-    ]);
+  const [members, announcements, events, portalInfo] = await Promise.allSettled([
+    api.get<EnrichedMember[]>("/api/members"),
+    api.get<MockAnnouncement[]>("/api/announcements"),
+    api.get<MockEvent[]>("/api/events"),
+    api.get<PortalInfo>("/api/portal/info"),
+  ]);
   return {
-    info: info.status === "fulfilled" ? info.value : null,
-    members:
-      members.status === "fulfilled"
-        ? (members.value as MemberRow[])
-        : (mockDb.users as MemberRow[]),
+    members: members.status === "fulfilled" ? members.value : [],
     announcements:
-      announcements.status === "fulfilled"
-        ? announcements.value
-        : mockDb.announcements,
-    events: events.status === "fulfilled" ? events.value : mockDb.events,
-    settings:
-      settings.status === "fulfilled" ? settings.value : mockDb.settings,
-    portalInfo:
-      portalInfo.status === "fulfilled" ? portalInfo.value : null,
+      announcements.status === "fulfilled" ? announcements.value : [],
+    events: events.status === "fulfilled" ? events.value : [],
+    portalInfo: portalInfo.status === "fulfilled" ? portalInfo.value : null,
   };
 }
 
 export default async function HomePage() {
-  const data = await fetchData();
-  const topMembers = [...data.members]
-    .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))
-    .slice(0, 5);
-  const pinned = data.announcements.find((a) => a.pinned);
-  const recent = data.announcements.filter((a) => !a.pinned).slice(0, 3);
-  const upcomingEvents = data.events
+  const { members, announcements, events, portalInfo } = await fetchData();
+
+  const sortedMembers = [...members].sort((a, b) => a.rank - b.rank);
+  const topMembers = sortedMembers.slice(0, 5);
+  const onlineCount = members.filter((m) => m.status === "online").length;
+  const pinned = announcements.find((a) => a.pinned);
+  const recent = announcements.filter((a) => !a.pinned).slice(0, 3);
+  const upcomingEvents = [...events]
     .sort(
       (a, b) =>
         new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
@@ -72,11 +45,15 @@ export default async function HomePage() {
 
   return (
     <main>
-      <HeroSection />
+      <HeroSection
+        memberCount={members.length}
+        portalInfo={portalInfo}
+      />
       <StatsBar
-        memberCount={data.members.length}
-        eventCount={data.events.length}
-        announcementCount={data.announcements.length}
+        memberCount={members.length}
+        onlineCount={onlineCount}
+        eventCount={upcomingEvents.length}
+        announcementCount={announcements.length}
       />
 
       <section className="border-t border-htb-border">
@@ -96,12 +73,23 @@ export default async function HomePage() {
                 </Link>
               </div>
 
-              {pinned && <AnnouncementCard announcement={pinned} expanded />}
+              {pinned ? (
+                <AnnouncementCard announcement={pinned} expanded />
+              ) : (
+                <div className="htb-card p-6 text-center htb-mono text-xs text-htb-text-dim">
+                  no announcements yet
+                </div>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-3">
                 {recent.map((a) => (
                   <AnnouncementCard key={a.id} announcement={a} />
                 ))}
+                {recent.length === 0 && (
+                  <div className="htb-card p-6 text-center htb-mono text-xs text-htb-text-dim md:col-span-3">
+                    no recent announcements
+                  </div>
+                )}
               </div>
             </div>
 
@@ -109,7 +97,7 @@ export default async function HomePage() {
               <h2 className="htb-heading text-2xl text-htb-text">
                 <span className="text-htb-green htb-mono">##</span> Live Feed
               </h2>
-              <ActivityFeed members={data.members} />
+              <ActivityFeed members={topMembers} />
             </div>
           </div>
         </div>
@@ -133,6 +121,11 @@ export default async function HomePage() {
             {upcomingEvents.map((e) => (
               <EventCard key={e.id} event={e} />
             ))}
+            {upcomingEvents.length === 0 && (
+              <div className="htb-card p-6 text-center htb-mono text-xs text-htb-text-dim lg:col-span-3">
+                no upcoming events
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -152,7 +145,7 @@ export default async function HomePage() {
               <div className="mt-6 space-y-2">
                 {topMembers.map((m, i) => (
                   <Link
-                    key={m.id}
+                    key={m.email}
                     href="/members"
                     className="htb-card htb-card-interactive flex items-center gap-4 p-4"
                   >
@@ -161,7 +154,7 @@ export default async function HomePage() {
                     </div>
                     <MemberAvatar
                       name={m.username}
-                      color={m.avatarColor}
+                      color={m.avatarColor ?? undefined}
                       status={m.status}
                       size="md"
                     />
@@ -170,7 +163,9 @@ export default async function HomePage() {
                         {m.username}
                       </div>
                       <div className="htb-mono text-xs text-htb-text-dim">
-                        {m.country} · {m.skills?.slice(0, 2).join(" · ")}
+                        {m.country} ·{" "}
+                        {m.skills.slice(0, 2).join(" · ") ||
+                          m.role.toLowerCase()}
                       </div>
                     </div>
                     <div className="htb-mono text-right">
@@ -183,6 +178,11 @@ export default async function HomePage() {
                     </div>
                   </Link>
                 ))}
+                {topMembers.length === 0 && (
+                  <div className="htb-card p-6 text-center htb-mono text-xs text-htb-text-dim">
+                    no members yet — be the first
+                  </div>
+                )}
               </div>
             </div>
 
@@ -225,7 +225,13 @@ export default async function HomePage() {
   );
 }
 
-function HeroSection() {
+function HeroSection({
+  memberCount,
+  portalInfo,
+}: {
+  memberCount: number;
+  portalInfo: PortalInfo | null;
+}) {
   return (
     <section className="relative overflow-hidden border-b border-htb-border htb-grid-bg">
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-htb-bg/60 to-htb-bg" />
@@ -247,8 +253,10 @@ function HeroSection() {
             <p className="text-balance text-lg text-htb-text-muted max-w-xl">
               A modular platform for cybersecurity clubs, universities, and
               operators. Courses, contests, and a community of{" "}
-              <span className="htb-mono text-htb-green">1,200+</span>{" "}
-              like-minded professionals.
+              <span className="htb-mono text-htb-green">
+                {memberCount || "—"}
+              </span>{" "}
+              verified operators.
             </p>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -278,13 +286,28 @@ function HeroSection() {
             <TerminalBlock
               lines={[
                 { prompt: true, text: "curl -X POST /api/signup" },
-                { muted: true, text: '{"username":"operator_42","email":"...","password":"..."}' },
+                {
+                  muted: true,
+                  text: '{"username":"operator_42","email":"...","password":"..."}',
+                },
+                {
+                  success: true,
+                  text: '{"accessToken":"eyJhbGc...","tokenType":"Bearer","expiresIn":86400}',
+                },
                 { prompt: true, text: "curl -X POST /api/signin" },
-                { success: true, text: '{"accessToken":"mock.****.****","tokenType":"Bearer","expiresIn":86400}' },
+                {
+                  success: true,
+                  text: '{"accessToken":"eyJhbGc...","tokenType":"Bearer","expiresIn":86400}',
+                },
                 { prompt: true, text: "curl /api/portal/info" },
-                { success: true, text: '{"service":"portal","version":"1.0.0"}' },
+                portalInfo
+                  ? { success: true, text: JSON.stringify(portalInfo) }
+                  : { muted: true, text: '{"error":"401 unauthorized"}' },
                 { prompt: true, text: "echo ready_to_hack" },
-                { text: "ready_to_hack", className: "text-htb-green htb-glow" },
+                {
+                  text: "ready_to_hack",
+                  className: "text-htb-green htb-glow",
+                },
                 { prompt: true, text: "_" },
               ]}
             />

@@ -1,24 +1,13 @@
-import { NextResponse } from "next/server";
-import { findUserById } from "@/lib/mock-data";
+import { forwardToGateway } from "@/lib/gateway";
+import type { NextRequest } from "next/server";
 
 export async function GET(
-  _req: Request,
+  req: NextRequest,
   ctx: { params: Promise<{ id: string }> },
 ) {
   const { id } = await ctx.params;
-  const user = findUserById(id);
-  if (!user) {
-    return NextResponse.json({ error: "not found" }, { status: 404 });
-  }
-  return NextResponse.json({
-    id: user.id,
-    email: user.email,
-    name: user.username,
-    global_roles: user.globalRoles,
-    bio: user.bio,
-    rank: user.rank,
-    points: user.points,
-    skills: user.skills,
-    memberships: user.memberships,
+  return forwardToGateway(req, {
+    service: "portal",
+    backendPath: `/users/${id}`,
   });
 }

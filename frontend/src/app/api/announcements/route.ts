@@ -10,10 +10,10 @@ export async function POST(req: Request) {
   const id = `a${Date.now()}`;
   const newAnn = {
     id,
-    tenantId: "cyberclub",
+    tenantId: "portal",
     title: body.title ?? "Untitled",
     body: body.body ?? "",
-    authorId: "11111111-1111-1111-1111-111111111111",
+    authorId: body.authorId ?? "u1",
     pinned: !!body.pinned,
     createdAt: new Date().toISOString(),
     type: body.type ?? "info",

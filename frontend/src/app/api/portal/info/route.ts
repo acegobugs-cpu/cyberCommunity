@@ -1,12 +1,9 @@
-import { NextResponse } from "next/server";
-import { findTenant } from "@/lib/mock-data";
+import { forwardToGateway } from "@/lib/gateway";
+import type { NextRequest } from "next/server";
 
-export async function GET() {
-  return NextResponse.json({
+export async function GET(req: NextRequest) {
+  return forwardToGateway(req, {
     service: "portal",
-    version: "1.0.0",
-    description:
-      "Cyber Club Portal — administrative and public-facing backbone for the platform.",
-    tenant: findTenant("cyberclub"),
+    backendPath: "/portal/info",
   });
 }

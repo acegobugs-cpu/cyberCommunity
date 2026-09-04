@@ -7,29 +7,18 @@ import { api } from "@/lib/api";
 import { MemberAvatar } from "@/components/member-avatar";
 import { ActivityFeed } from "@/components/activity-feed";
 import { useRouter } from "next/navigation";
-
-type Member = {
-  id: string;
-  username: string;
-  email: string;
-  rank: number;
-  points: number;
-  avatarColor: string;
-  status: "online" | "offline" | "away";
-  country: string;
-  skills: string[];
-  role?: string;
-};
+import type { EnrichedMember } from "@/lib/enriched-types";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
-  const [member, setMember] = useState<Member | null>(null);
+  const { user, token, loading: authLoading } = useAuth();
+  const [member, setMember] = useState<EnrichedMember | null>(null);
+  const [portalRole, setPortalRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+    if (!user || !token) {
       router.push("/signin");
       return;
     }
@@ -37,9 +26,16 @@ export default function DashboardPage() {
     let active = true;
     (async () => {
       try {
-        const users = await api.get<Member[]>("/api/users");
-        const me = users.find((u) => u.email === user.email) ?? null;
-        if (active) setMember(me);
+        const members = await api.get<EnrichedMember[]>("/api/members");
+        if (!active) return;
+        const me = members.find((m) => m.email === user.email) ?? null;
+        setMember(me);
+        try {
+          const info = await api.get<{ role: string }>("/api/portal/info");
+          if (active) setPortalRole(info.role);
+        } catch {
+          // portal/info requires authenticated request — fall back silently
+        }
       } catch {
         if (active) setMember(null);
       } finally {
@@ -50,7 +46,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [user, authLoading, router]);
+  }, [user, token, authLoading, router]);
 
   if (authLoading || loading) {
     return (
@@ -66,7 +62,7 @@ export default function DashboardPage() {
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10 w-full">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex items-center justify-between gap-4">
         <div>
           <div className="htb-mono text-xs uppercase tracking-widest text-htb-text-dim">
             &gt; session --active
@@ -76,12 +72,18 @@ export default function DashboardPage() {
             <span className="text-htb-green htb-glow">{user.username}</span>
             <span className="text-htb-green">_</span>
           </h1>
+          {portalRole && (
+            <div className="htb-mono text-[0.65rem] text-htb-text-dim mt-1">
+              portal role:{" "}
+              <span className="text-htb-green">{portalRole}</span>
+            </div>
+          )}
         </div>
         {member && (
           <div className="flex items-center gap-3">
             <MemberAvatar
               name={member.username}
-              color={member.avatarColor}
+              color={member.avatarColor ?? undefined}
               status={member.status}
               size="lg"
             />
@@ -90,7 +92,7 @@ export default function DashboardPage() {
                 {member.username}
               </div>
               <div className="htb-mono text-[0.65rem] text-htb-text-dim uppercase tracking-widest">
-                {member.role ?? "MEMBER"} · {member.country}
+                {member.role} · {member.country}
               </div>
             </div>
           </div>
@@ -112,8 +114,8 @@ export default function DashboardPage() {
         />
         <StatCard
           label="badges"
-          value="12"
-          sub="3 unlocked this month"
+          value={String(member?.skills.length ?? 0)}
+          sub="skills tracked"
           tone="purple"
         />
       </div>
@@ -126,13 +128,13 @@ export default function DashboardPage() {
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
               <ActionCard
-                href="/learn"
+                href="https://learn.cyberclubportal.com"
                 title="Continue learning"
                 desc="Resume 'Practical Binary Exploitation' · module 4 of 12"
                 tag="learn"
               />
               <ActionCard
-                href="/challenges"
+                href="https://challenges.cyberclubportal.com"
                 title="Next CTF"
                 desc="Web Exploitation Sprint starts in 3h 24m"
                 tag="ctf"
@@ -146,32 +148,28 @@ export default function DashboardPage() {
               <ActionCard
                 href="/members"
                 title="Community"
-                desc="Browse 1,248 operators across 3 tenants"
+                desc="Browse operators across the platform"
                 tag="social"
               />
             </div>
           </div>
 
-          <div>
-            <h2 className="htb-heading text-xl text-htb-text mb-3">
-              <span className="text-htb-green htb-mono">##</span> Your skills
-            </h2>
-            <div className="htb-card p-5">
-              <div className="flex flex-wrap gap-2">
-                {(member?.skills ?? []).map((s) => (
-                  <span key={s} className="htb-badge htb-badge-cyan">
-                    {s}
-                  </span>
-                ))}
-                <Link
-                  href="/settings"
-                  className="htb-badge htb-badge-purple"
-                >
-                  + add
-                </Link>
+          {member && member.skills.length > 0 && (
+            <div>
+              <h2 className="htb-heading text-xl text-htb-text mb-3">
+                <span className="text-htb-green htb-mono">##</span> Your skills
+              </h2>
+              <div className="htb-card p-5">
+                <div className="flex flex-wrap gap-2">
+                  {member.skills.map((s) => (
+                    <span key={s} className="htb-badge htb-badge-cyan">
+                      {s}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div>

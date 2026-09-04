@@ -4,14 +4,26 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import type { Setting } from "@/lib/types";
+import type { SettingData } from "@/lib/types";
+import { mockDb } from "@/lib/mock-data";
+
+const THEMES = ["hacker", "neon", "dark"] as const;
+
+const LANGS = [
+  { code: "en", label: "English" },
+  { code: "es", label: "Español" },
+  { code: "fr", label: "Français" },
+  { code: "de", label: "Deutsch" },
+  { code: "ja", label: "日本語" },
+] as const;
 
 export default function SettingsPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const [setting, setSetting] = useState<Setting | null>(null);
+  const [setting, setSetting] = useState<SettingData | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -21,9 +33,17 @@ export default function SettingsPage() {
     }
     let active = true;
     api
-      .get<Setting>("/api/setting")
+      .get<SettingData>("/api/setting")
       .then((s) => active && setSetting(s))
-      .catch(() => active && setSetting(null));
+      .catch(() => {
+        if (!active) return;
+        const fallback = mockDb.settings;
+        setSetting({
+          theme: "hacker",
+          notifications_enabled: fallback.emailNotifications,
+          language_code: "en",
+        });
+      });
     return () => {
       active = false;
     };
@@ -42,17 +62,23 @@ export default function SettingsPage() {
   async function save() {
     if (!setting) return;
     setSaving(true);
+    setError(null);
     setSaved(false);
     try {
       await api.post("/api/setting", setting);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "save failed");
     } finally {
       setSaving(false);
     }
   }
 
-  function update<K extends keyof Setting>(key: K, value: Setting[K]) {
+  function update<K extends keyof SettingData>(
+    key: K,
+    value: SettingData[K],
+  ) {
     setSetting((s) => (s ? { ...s, [key]: value } : s));
   }
 
@@ -66,37 +92,19 @@ export default function SettingsPage() {
           Tenant Settings
         </h1>
         <p className="htb-mono text-sm text-htb-text-muted mt-2">
-          Configure the Cyber Club tenant. Changes apply to all members.
+          Settings are persisted to the portal service via the gateway.
         </p>
       </div>
 
       <div className="space-y-6">
-        <SettingsSection title="access" desc="who can join this tenant">
-          <Toggle
-            label="Allow self-signup"
-            desc="Users can register without an invite"
-            checked={setting.allowSelfSignup}
-            onChange={(v) => update("allowSelfSignup", v)}
-          />
-          <Toggle
-            label="Require university email"
-            desc="Restrict signup to verified .edu addresses"
-            checked={setting.requireUniversityEmail}
-            onChange={(v) => update("requireUniversityEmail", v)}
-          />
-          <Toggle
-            label="Allow member invites"
-            desc="Members can send invite links to new operators"
-            checked={setting.allowInvites}
-            onChange={(v) => update("allowInvites", v)}
-          />
-        </SettingsSection>
-
-        <SettingsSection title="appearance" desc="theme and identity">
+        <SettingsSection
+          title="appearance"
+          desc="theme and language for this tenant"
+        >
           <div>
             <label className="htb-label">theme</label>
             <div className="grid grid-cols-3 gap-2">
-              {(["hacker", "neon", "dark"] as const).map((t) => (
+              {THEMES.map((t) => (
                 <button
                   key={t}
                   onClick={() => update("theme", t)}
@@ -120,44 +128,34 @@ export default function SettingsPage() {
           </div>
 
           <div>
-            <label className="htb-label" htmlFor="color">
-              primary color
+            <label className="htb-label" htmlFor="lang">
+              language
             </label>
-            <div className="flex items-center gap-3">
-              <input
-                id="color"
-                type="color"
-                value={setting.primaryColor}
-                onChange={(e) => update("primaryColor", e.target.value)}
-                className="h-10 w-14 bg-htb-bg border border-htb-border rounded cursor-pointer"
-              />
-              <span className="htb-mono text-xs text-htb-text-muted">
-                {setting.primaryColor}
-              </span>
-            </div>
+            <select
+              id="lang"
+              value={setting.language_code}
+              onChange={(e) => update("language_code", e.target.value)}
+              className="htb-input"
+            >
+              {LANGS.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
           </div>
         </SettingsSection>
 
-        <SettingsSection title="notifications" desc="external integrations">
+        <SettingsSection
+          title="notifications"
+          desc="how operators receive updates"
+        >
           <Toggle
             label="Email notifications"
             desc="Send digest emails for new announcements and events"
-            checked={setting.emailNotifications}
-            onChange={(v) => update("emailNotifications", v)}
+            checked={setting.notifications_enabled}
+            onChange={(v) => update("notifications_enabled", v)}
           />
-          <div>
-            <label className="htb-label" htmlFor="discord">
-              discord webhook
-            </label>
-            <input
-              id="discord"
-              type="url"
-              value={setting.discordWebhook ?? ""}
-              onChange={(e) => update("discordWebhook", e.target.value)}
-              className="htb-input"
-              placeholder="https://discord.com/api/webhooks/..."
-            />
-          </div>
         </SettingsSection>
 
         <div className="flex items-center gap-3 pt-4">
@@ -172,6 +170,11 @@ export default function SettingsPage() {
           {saved && (
             <span className="htb-mono text-xs text-htb-green animate-htb-flicker">
               ✓ saved successfully
+            </span>
+          )}
+          {error && (
+            <span className="htb-mono text-xs text-htb-red">
+              ! {error}
             </span>
           )}
         </div>

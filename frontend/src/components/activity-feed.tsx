@@ -2,44 +2,41 @@
 
 import { useEffect, useState } from "react";
 import { MemberAvatar } from "./member-avatar";
+import type { EnrichedMember } from "@/lib/enriched-types";
 
-type Member = {
-  id: string;
-  username: string;
-  avatarColor?: string;
-  status?: "online" | "offline" | "away";
-  rank?: number;
-  points?: number;
-};
+type ActivityMember = Pick<
+  EnrichedMember,
+  "id" | "username" | "avatarColor" | "status" | "rank"
+>;
 
 const ACTION_TEMPLATES = [
-  (m: Member) => ({
+  (m: ActivityMember) => ({
     text: `${m.username} solved a challenge`,
     color: "text-htb-green",
   }),
-  (m: Member) => ({
+  (m: ActivityMember) => ({
     text: `${m.username} earned the pwn badge`,
     color: "text-htb-cyan",
   }),
-  (m: Member) => ({
+  (m: ActivityMember) => ({
     text: `${m.username} joined a study group`,
     color: "text-htb-purple",
   }),
-  (m: Member) => ({
+  (m: ActivityMember) => ({
     text: `${m.username} started a course on reverse engineering`,
     color: "text-htb-amber",
   }),
-  (m: Member) => ({
+  (m: ActivityMember) => ({
     text: `${m.username} ranked up to #${m.rank ?? "?"}`,
     color: "text-htb-green",
   }),
-  (m: Member) => ({
+  (m: ActivityMember) => ({
     text: `${m.username} submitted a writeup`,
     color: "text-htb-magenta",
   }),
 ];
 
-export function ActivityFeed({ members }: { members: Member[] }) {
+export function ActivityFeed({ members }: { members: EnrichedMember[] }) {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -53,7 +50,7 @@ export function ActivityFeed({ members }: { members: Member[] }) {
       return {
         text: "system booted",
         color: "text-htb-text-dim",
-        member: null as Member | null,
+        member: null as ActivityMember | null,
         time: "now",
       };
     }
@@ -84,7 +81,7 @@ export function ActivityFeed({ members }: { members: Member[] }) {
             {item.member ? (
               <MemberAvatar
                 name={item.member.username}
-                color={item.member.avatarColor}
+                color={item.member.avatarColor ?? undefined}
                 status={item.member.status}
                 size="sm"
               />

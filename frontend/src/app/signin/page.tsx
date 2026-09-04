@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { ApiError } from "@/lib/api";
 
 export default function SigninPage() {
   const router = useRouter();
@@ -12,20 +13,39 @@ export default function SigninPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  const handleSubmit = useCallback(async () => {
     setError(null);
+    setSuccess(false);
+
+    if (!email) {
+      setError("please enter your email");
+      return;
+    }
+    if (!password) {
+      setError("please enter your password");
+      return;
+    }
+
     setLoading(true);
     try {
       await signin(email, password);
+      setSuccess(true);
+      await new Promise((r) => setTimeout(r, 400));
       router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "sign in failed");
+      if (err instanceof ApiError) {
+        setError(formatApiError(err));
+      } else if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("sign in failed");
+      }
     } finally {
       setLoading(false);
     }
-  }
+  }, [email, password, signin, router]);
 
   return (
     <main className="flex-1 flex items-center justify-center px-6 py-16">
@@ -40,16 +60,16 @@ export default function SigninPage() {
           Sign in to access your dashboard, courses, and CTF scores.
         </p>
 
-        <form onSubmit={onSubmit} className="mt-8 space-y-5">
+        <div className="mt-8 space-y-5">
           <div>
             <label className="htb-label" htmlFor="email">
               email
             </label>
             <input
               id="email"
+              name="email"
               type="email"
               autoComplete="email"
-              required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="htb-input"
@@ -63,9 +83,9 @@ export default function SigninPage() {
             </label>
             <input
               id="password"
+              name="password"
               type="password"
               autoComplete="current-password"
-              required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="htb-input"
@@ -81,32 +101,27 @@ export default function SigninPage() {
             </div>
           )}
 
+          {success && (
+            <div className="htb-card border-htb-green/40 bg-htb-green/5 p-3">
+              <div className="htb-mono text-xs text-htb-green">
+                ✓ authenticated — redirecting...
+              </div>
+            </div>
+          )}
+
           <button
-            type="submit"
-            disabled={loading}
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading || success}
             className="htb-button htb-button-primary w-full disabled:opacity-50"
           >
-            {loading ? "authenticating..." : "Sign in"}
+            {loading
+              ? "authenticating..."
+              : success
+                ? "success"
+                : "Sign in"}
             <span className="htb-mono">→</span>
           </button>
-        </form>
-
-        <div className="mt-6 htb-divider" />
-
-        <div className="mt-6 htb-card p-4">
-          <div className="htb-mono text-[0.65rem] uppercase tracking-widest text-htb-text-dim mb-2">
-            {"// demo accounts"}
-          </div>
-          <div className="space-y-1 htb-mono text-xs text-htb-text-muted">
-            <div>
-              <span className="text-htb-green">root@cyberclubportal.com</span>{" "}
-              / root1234
-            </div>
-            <div>
-              <span className="text-htb-green">neuromancer@cyberclubportal.com</span>{" "}
-              / pass1234
-            </div>
-          </div>
         </div>
 
         <div className="mt-6 text-center htb-mono text-xs text-htb-text-muted">
@@ -118,4 +133,28 @@ export default function SigninPage() {
       </div>
     </main>
   );
+}
+
+function formatApiError(err: ApiError): string {
+  const body = err.body as
+    | { error?: string; message?: string }
+    | string
+    | null;
+
+  if (typeof body === "string" && body.trim()) {
+    return body;
+  }
+
+  if (body && typeof body === "object") {
+    if (body.error && body.message) return `${body.error}: ${body.message}`;
+    if (body.error) return body.error;
+    if (body.message) return body.message;
+  }
+
+  if (err.status === 0) return "network error — is the gateway reachable?";
+  if (err.status === 401) return "invalid email or password";
+  if (err.status === 404) return "no account exists with this email";
+  if (err.status === 502) return "gateway unreachable — is docker-compose up?";
+  if (err.status >= 500) return `server error (${err.status})`;
+  return `request failed (${err.status})`;
 }
