@@ -1,0 +1,47 @@
+# Keep generated, vendored and bulky files out of the AI agent's context.
+# Mirrors .gitignore where it matters and adds lockfiles / caches that are
+# checked in but never useful to read.
+
+# --- Build output ---
+**/target/
+**/*.jar
+**/*.jar.original
+**/*.class
+frontend/.next/
+frontend/out/
+frontend/tsconfig.tsbuildinfo
+
+# --- Dependencies / vendored tools ---
+frontend/node_modules/
+tools/
+**/.mvn/wrapper/*.jar
+
+# --- Lockfiles (machine-generated, huge, no signal) ---
+frontend/package-lock.json
+**/pnpm-lock.yaml
+**/yarn.lock
+
+# --- Logs & runtime state ---
+logs/
+**/*.log
+**/surefire-reports/
+**/maven-status/
+**/maven-archiver/
+
+# --- Secrets ---
+.env
+.env.*
+
+# --- IDE / OS noise ---
+.vscode/
+.idea/
+**/.DS_Store
+
+# --- Binary / media ---
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.ico
+**/*.woff
+**/*.woff2
