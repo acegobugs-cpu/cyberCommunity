@@ -14,7 +14,7 @@ export function SiteHeader({
   nav: NavItem[];
 }) {
   const pathname = usePathname();
-  const { user, signout } = useAuth();
+  const { user, signout, loading } = useAuth();
   const [open, setOpen] = useState(false);
 
   const isPortal = !subdomain || subdomain === "portal" || subdomain === "www";
@@ -44,7 +44,7 @@ export function SiteHeader({
         {isPortal && (
           <nav className="hidden md:flex items-center gap-1">
             {portalNav
-              .filter((i) => !i.admin || user)
+              .filter((i) => !i.admin || (!loading && user))
               .map((item) => {
                 const active = pathname === item.href;
                 return (
