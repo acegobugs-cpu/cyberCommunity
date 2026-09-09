@@ -14,7 +14,7 @@ export function SiteHeader({
   nav: NavItem[];
 }) {
   const pathname = usePathname();
-  const { user, signout, loading } = useAuth();
+  const { user, isAdmin, signout, loading } = useAuth();
   const [open, setOpen] = useState(false);
 
   const isPortal = !subdomain || subdomain === "portal" || subdomain === "www";
@@ -25,6 +25,7 @@ export function SiteHeader({
     { key: "events", label: "Events", href: "/events" },
     { key: "settings", label: "Settings", href: "/settings", admin: true },
   ];
+  const visibleNav = portalNav.filter((i) => !i.admin || (!loading && isAdmin));
 
   return (
     <header className="sticky top-0 z-50 border-b border-htb-border bg-htb-bg/85 backdrop-blur-md">
@@ -43,8 +44,7 @@ export function SiteHeader({
 
         {isPortal && (
           <nav className="hidden md:flex items-center gap-1">
-            {portalNav
-              .filter((i) => !i.admin || (!loading && user))
+            {visibleNav
               .map((item) => {
                 const active = pathname === item.href;
                 return (
@@ -98,7 +98,7 @@ export function SiteHeader({
                 </span>
               </Link>
               <button
-                onClick={signout}
+                onClick={() => void signout()}
                 className="htb-button htb-button-ghost"
               >
                 Sign out
@@ -131,8 +131,7 @@ export function SiteHeader({
       {open && isPortal && (
         <div className="md:hidden border-t border-htb-border bg-htb-bg-elevated">
           <nav className="flex flex-col p-2">
-            {portalNav
-              .filter((i) => !i.admin || user)
+            {visibleNav
               .map((item) => (
                 <Link
                   key={item.key}

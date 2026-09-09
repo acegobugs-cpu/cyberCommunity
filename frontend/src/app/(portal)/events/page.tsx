@@ -1,5 +1,5 @@
-import { api } from "@/lib/api";
 import { EventCard } from "@/components/event-card";
+import { mockDb } from "@/lib/mock-data";
 
 type Event = {
   id: string;
@@ -16,12 +16,8 @@ type Event = {
 export const dynamic = "force-dynamic";
 
 export default async function EventsPage() {
-  let events: Event[] = [];
-  try {
-    events = await api.get<Event[]>("/api/events");
-  } catch {
-    events = [];
-  }
+  // Events have no backend yet (portal v2); served from the in-memory mock.
+  const events: Event[] = mockDb.events;
 
   const sorted = [...events].sort(
     (a, b) =>

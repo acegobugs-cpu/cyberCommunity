@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import type { SettingData } from "@/lib/types";
 import { mockDb } from "@/lib/mock-data";
 
@@ -17,10 +17,18 @@ const LANGS = [
   { code: "ja", label: "日本語" },
 ] as const;
 
+// The portal service only exposes POST /setting (no GET), so the form starts
+// from these defaults instead of reading the stored values back.
+const DEFAULT_SETTING: SettingData = {
+  theme: "hacker",
+  notifications_enabled: mockDb.settings.emailNotifications,
+  language_code: "en",
+};
+
 export default function SettingsPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
-  const [setting, setSetting] = useState<SettingData | null>(null);
+  const { user, portalRole, isAdmin, loading: authLoading } = useAuth();
+  const [setting, setSetting] = useState<SettingData>(DEFAULT_SETTING);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,27 +37,10 @@ export default function SettingsPage() {
     if (authLoading) return;
     if (!user) {
       router.push("/signin");
-      return;
     }
-    let active = true;
-    api
-      .get<SettingData>("/api/setting")
-      .then((s) => active && setSetting(s))
-      .catch(() => {
-        if (!active) return;
-        const fallback = mockDb.settings;
-        setSetting({
-          theme: "hacker",
-          notifications_enabled: fallback.emailNotifications,
-          language_code: "en",
-        });
-      });
-    return () => {
-      active = false;
-    };
   }, [user, authLoading, router]);
 
-  if (authLoading || !setting) {
+  if (authLoading || !user) {
     return (
       <main className="flex-1 flex items-center justify-center">
         <div className="htb-mono text-htb-text-dim animate-htb-pulse">
@@ -60,7 +51,6 @@ export default function SettingsPage() {
   }
 
   async function save() {
-    if (!setting) return;
     setSaving(true);
     setError(null);
     setSaved(false);
@@ -69,7 +59,11 @@ export default function SettingsPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "save failed");
+      if (err instanceof ApiError && err.status === 403) {
+        setError("saving settings requires the ADMIN role in the portal service");
+      } else {
+        setError(err instanceof Error ? err.message : "save failed");
+      }
     } finally {
       setSaving(false);
     }
@@ -79,7 +73,7 @@ export default function SettingsPage() {
     key: K,
     value: SettingData[K],
   ) {
-    setSetting((s) => (s ? { ...s, [key]: value } : s));
+    setSetting((s) => ({ ...s, [key]: value }));
   }
 
   return (
@@ -95,6 +89,16 @@ export default function SettingsPage() {
           Settings are persisted to the portal service via the gateway.
         </p>
       </div>
+
+      {!isAdmin && (
+        <div className="htb-card border-htb-amber/40 p-4 mb-6 htb-mono text-xs text-htb-amber">
+          ! read-only: saving requires the <span className="font-bold">ADMIN</span>{" "}
+          portal role. Your role is{" "}
+          <span className="font-bold">{portalRole ?? "unknown"}</span>. New
+          accounts are created as USER; an operator must promote you in the
+          identity service.
+        </div>
+      )}
 
       <div className="space-y-6">
         <SettingsSection
@@ -161,8 +165,9 @@ export default function SettingsPage() {
         <div className="flex items-center gap-3 pt-4">
           <button
             onClick={save}
-            disabled={saving}
-            className="htb-button htb-button-primary"
+            disabled={saving || !isAdmin}
+            title={isAdmin ? undefined : "requires ADMIN role"}
+            className="htb-button htb-button-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "saving..." : "Save changes"}
             <span className="htb-mono">→</span>

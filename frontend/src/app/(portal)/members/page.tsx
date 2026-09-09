@@ -1,17 +1,12 @@
-import Link from "next/link";
-import { api } from "@/lib/api";
 import { MemberAvatar } from "@/components/member-avatar";
-import type { EnrichedMember } from "@/lib/enriched-types";
+import { getSessionToken } from "@/lib/server/session";
+import { getEnrichedMembers } from "@/lib/data/members";
 
 export const dynamic = "force-dynamic";
 
 export default async function MembersPage() {
-  let members: EnrichedMember[] = [];
-  try {
-    members = await api.get<EnrichedMember[]>("/api/members");
-  } catch {
-    members = [];
-  }
+  const token = await getSessionToken();
+  const { members, source } = await getEnrichedMembers(token);
 
   const sorted = [...members].sort((a, b) => a.rank - b.rank);
   const online = members.filter((m) => m.status === "online").length;
@@ -29,6 +24,13 @@ export default async function MembersPage() {
           </h1>
           <p className="htb-mono text-sm text-htb-text-muted mt-2">
             Members of the portal tenant, enriched with platform profiles.
+            {source === "mock" && (
+              <span className="text-htb-amber">
+                {" "}
+                · showing sample data
+                {token ? " (gateway unavailable)" : " (sign in to see live members)"}
+              </span>
+            )}
           </p>
         </div>
 
@@ -51,9 +53,8 @@ export default async function MembersPage() {
         </div>
 
         {sorted.map((m, i) => (
-          <Link
+          <div
             key={m.email}
-            href="#"
             className="grid grid-cols-12 gap-2 px-5 py-3 items-center border-b border-htb-border last:border-b-0 hover:bg-htb-bg-hover transition-colors"
           >
             <div className="col-span-1 htb-mono text-sm text-htb-text-dim">
@@ -94,12 +95,12 @@ export default async function MembersPage() {
                 }`}
               />
             </div>
-          </Link>
+          </div>
         ))}
 
         {sorted.length === 0 && (
           <div className="px-5 py-10 text-center htb-mono text-xs text-htb-text-dim">
-            no members to display — the gateway may be offline
+            no members to display
           </div>
         )}
       </div>

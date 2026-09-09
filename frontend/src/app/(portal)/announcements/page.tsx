@@ -1,5 +1,5 @@
-import { api } from "@/lib/api";
 import { AnnouncementCard } from "@/components/announcement-card";
+import { mockDb } from "@/lib/mock-data";
 
 type Announcement = {
   id: string;
@@ -14,12 +14,8 @@ type Announcement = {
 export const dynamic = "force-dynamic";
 
 export default async function AnnouncementsPage() {
-  let announcements: Announcement[] = [];
-  try {
-    announcements = await api.get<Announcement[]>("/api/announcements");
-  } catch {
-    announcements = [];
-  }
+  // Announcements have no backend yet (portal v2); served from the in-memory mock.
+  const announcements: Announcement[] = mockDb.announcements;
 
   const sorted = [...announcements].sort((a, b) => {
     if (a.pinned && !b.pinned) return -1;

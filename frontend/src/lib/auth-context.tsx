@@ -9,132 +9,116 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { User, AuthResponse } from "@/lib/types";
+import type { User, SessionResponse } from "@/lib/types";
 import { api, configureApi } from "@/lib/api";
 
+/**
+ * Client-side view of the session. The JWT itself is NEVER available here: it
+ * lives in an httpOnly cookie managed by the BFF. On mount we ask
+ * `/api/session` whether a valid session exists and who the user is.
+ */
 interface AuthState {
   user: User | null;
-  token: string | null;
+  /** Role in the portal service (`USER` / `ADMIN`), null when unknown or signed out. */
+  portalRole: string | null;
   loading: boolean;
 }
 
 interface AuthContextValue extends AuthState {
+  isAdmin: boolean;
   signin: (email: string, password: string) => Promise<void>;
-  signup: (
-    username: string,
-    email: string,
-    password: string,
-  ) => Promise<void>;
-  signout: () => void;
+  signup: (username: string, email: string, password: string) => Promise<void>;
+  signout: () => Promise<void>;
+  refresh: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const STORAGE_KEY = "ccp.auth";
-
-interface StoredAuth {
-  user: User;
-  token: string;
-}
-
-function readInitialState(): AuthState {
-  if (typeof window === "undefined") {
-    return { user: null, token: null, loading: true };
-  }
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { user: null, token: null, loading: false };
-    const parsed = JSON.parse(raw) as { user: User; token: string };
-    return {
-      user: parsed.user,
-      token: parsed.token,
-      loading: false,
-    };
-  } catch {
-    return { user: null, token: null, loading: false };
-  }
-}
-
-function decodeJwtSubject(token: string): string | null {
-  try {
-    const parts = token.split(".");
-    if (parts.length < 2) return null;
-    const payload = parts[1];
-    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
-    const parsed = JSON.parse(json) as { sub?: string };
-    return parsed.sub ?? null;
-  } catch {
-    return null;
-  }
-}
+const SIGNED_OUT: AuthState = { user: null, portalRole: null, loading: false };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>(readInitialState);
+  const [state, setState] = useState<AuthState>({
+    user: null,
+    portalRole: null,
+    loading: true,
+  });
 
-  useEffect(() => {
-    configureApi({
-      getToken: () => state.token,
-    });
-  }, [state.token]);
-
-  const setAuth = useCallback((stored: StoredAuth | null) => {
-    if (stored) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
-      setState({ user: stored.user, token: stored.token, loading: false });
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-      setState({ user: null, token: null, loading: false });
+  const applySession = useCallback((s: SessionResponse | null) => {
+    if (!s) {
+      setState(SIGNED_OUT);
+      return;
     }
+    setState({ user: s.user, portalRole: s.portalRole ?? null, loading: false });
+  }, []);
+
+  const refresh = useCallback(async () => {
+    try {
+      const s = await api.get<SessionResponse>("/api/session");
+      applySession(s);
+    } catch {
+      applySession(null);
+    }
+  }, [applySession]);
+
+  // Hydrate from the cookie on first render.
+  useEffect(() => {
+    let active = true;
+    api
+      .get<SessionResponse>("/api/session")
+      .then((s) => {
+        if (active) applySession(s);
+      })
+      .catch(() => {
+        if (active) applySession(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [applySession]);
+
+  // Any 401 from the BFF (expired cookie, revoked session) signs the client out.
+  useEffect(() => {
+    configureApi({ onUnauthorized: () => setState(SIGNED_OUT) });
   }, []);
 
   const signin = useCallback(
     async (email: string, password: string) => {
-      const res: AuthResponse = await api.post("/api/signin", {
-        email,
-        password,
-      });
-      if (!res?.accessToken) {
-        throw new Error("signin response missing accessToken");
-      }
-      const id = decodeJwtSubject(res.accessToken) ?? "";
-      const user: User = {
-        id,
-        username: email.split("@")[0],
-        email,
-      };
-      setAuth({ user, token: res.accessToken });
+      await api.post<SessionResponse>("/api/signin", { email, password });
+      await refresh();
     },
-    [setAuth],
+    [refresh],
   );
 
   const signup = useCallback(
     async (username: string, email: string, password: string) => {
-      const res: AuthResponse = await api.post("/api/signup", {
+      await api.post<SessionResponse>("/api/signup", {
         username,
         email,
         password,
       });
-      if (!res?.accessToken) {
-        throw new Error("signup response missing accessToken");
-      }
-      const id = decodeJwtSubject(res.accessToken) ?? "";
-      const user: User = {
-        id,
-        username,
-        email,
-      };
-      setAuth({ user, token: res.accessToken });
+      await refresh();
     },
-    [setAuth],
+    [refresh],
   );
 
-  const signout = useCallback(() => {
-    setAuth(null);
-  }, [setAuth]);
+  const signout = useCallback(async () => {
+    try {
+      await api.post("/api/signout");
+    } finally {
+      setState(SIGNED_OUT);
+    }
+  }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ ...state, signin, signup, signout }),
-    [state, signin, signup, signout],
+    () => ({
+      ...state,
+      isAdmin: state.portalRole === "ADMIN",
+      signin,
+      signup,
+      signout,
+      refresh,
+    }),
+    [state, signin, signup, signout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

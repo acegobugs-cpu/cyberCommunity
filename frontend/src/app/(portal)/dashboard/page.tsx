@@ -11,14 +11,13 @@ import type { EnrichedMember } from "@/lib/enriched-types";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, token, loading: authLoading } = useAuth();
+  const { user, portalRole, loading: authLoading } = useAuth();
   const [member, setMember] = useState<EnrichedMember | null>(null);
-  const [portalRole, setPortalRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user || !token) {
+    if (!user) {
       router.push("/signin");
       return;
     }
@@ -30,12 +29,6 @@ export default function DashboardPage() {
         if (!active) return;
         const me = members.find((m) => m.email === user.email) ?? null;
         setMember(me);
-        try {
-          const info = await api.get<{ role: string }>("/api/portal/info");
-          if (active) setPortalRole(info.role);
-        } catch {
-          // portal/info requires authenticated request — fall back silently
-        }
       } catch {
         if (active) setMember(null);
       } finally {
@@ -46,7 +39,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [user, token, authLoading, router]);
+  }, [user, authLoading, router]);
 
   if (authLoading || loading) {
     return (
@@ -128,13 +121,13 @@ export default function DashboardPage() {
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
               <ActionCard
-                href="https://learn.cyberclubportal.com"
+                href="/learn"
                 title="Continue learning"
                 desc="Resume 'Practical Binary Exploitation' · module 4 of 12"
                 tag="learn"
               />
               <ActionCard
-                href="https://challenges.cyberclubportal.com"
+                href="/challenges"
                 title="Next CTF"
                 desc="Web Exploitation Sprint starts in 3h 24m"
                 tag="ctf"

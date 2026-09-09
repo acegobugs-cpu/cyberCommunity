@@ -1,10 +1,18 @@
-type TokenGetter = () => string | null;
+/**
+ * Browser-side fetch wrapper for the BFF (`/api/*`).
+ *
+ * Authentication is cookie-based: the session JWT lives in an httpOnly cookie
+ * set by the BFF, so the client never handles tokens. Requests use
+ * `credentials: "same-origin"` (the default) and a 401 from the BFF means the
+ * session is missing or expired; `onUnauthorized` lets the auth context react.
+ */
+type UnauthorizedHandler = () => void;
 
-let getToken: TokenGetter = () => null;
+let onUnauthorized: UnauthorizedHandler = () => {};
 
-export function configureApi(opts: { getToken?: TokenGetter }) {
-  if (opts.getToken) {
-    getToken = opts.getToken;
+export function configureApi(opts: { onUnauthorized?: UnauthorizedHandler }) {
+  if (opts.onUnauthorized) {
+    onUnauthorized = opts.onUnauthorized;
   }
 }
 
@@ -26,14 +34,11 @@ async function request<T>(
   if (init.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const token = getToken();
-  if (token && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
 
   const res = await fetch(path, {
     ...init,
     headers,
+    credentials: "same-origin",
     cache: "no-store",
   });
 
@@ -42,10 +47,18 @@ async function request<T>(
   const body = isJson ? await res.json().catch(() => null) : await res.text();
 
   if (!res.ok) {
+    if (res.status === 401 && !path.startsWith("/api/sign")) {
+      onUnauthorized();
+    }
     const message =
+      (isJson && body && typeof body === "object" && "message" in body
+        ? String((body as { message: unknown }).message)
+        : null) ||
       (isJson && body && typeof body === "object" && "error" in body
         ? String((body as { error: unknown }).error)
-        : null) || res.statusText || `request failed: ${res.status}`;
+        : null) ||
+      res.statusText ||
+      `request failed: ${res.status}`;
     throw new ApiError(message, res.status, body);
   }
 
@@ -54,8 +67,11 @@ async function request<T>(
 
 export const api = {
   get: <T,>(path: string) => request<T>(path),
-  post: <T,>(path: string, body: unknown) =>
-    request<T>(path, { method: "POST", body: JSON.stringify(body) }),
+  post: <T,>(path: string, body?: unknown) =>
+    request<T>(path, {
+      method: "POST",
+      body: body === undefined ? undefined : JSON.stringify(body),
+    }),
   put: <T,>(path: string, body: unknown) =>
     request<T>(path, { method: "PUT", body: JSON.stringify(body) }),
   del: <T,>(path: string) => request<T>(path, { method: "DELETE" }),

@@ -1,9 +1,6 @@
-import { forwardToGateway } from "@/lib/gateway";
+import { completeAuth } from "@/lib/server/auth-handler";
 import type { NextRequest } from "next/server";
 
 export async function POST(req: NextRequest) {
-  return forwardToGateway(req, {
-    service: "identity",
-    backendPath: "/signup",
-  });
+  return completeAuth(req, "/signup");
 }

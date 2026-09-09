@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { api } from "@/lib/api";
 import { TerminalBlock } from "@/components/terminal-block";
 import { ActivityFeed } from "@/components/activity-feed";
 import { MemberAvatar } from "@/components/member-avatar";
@@ -7,24 +6,25 @@ import { AnnouncementCard } from "@/components/announcement-card";
 import { EventCard } from "@/components/event-card";
 import { StatsBar } from "@/components/stats-bar";
 import type { PortalInfo } from "@/lib/types";
-import type { EnrichedMember } from "@/lib/enriched-types";
-import type { MockAnnouncement, MockEvent } from "@/lib/mock-data";
+import { mockDb } from "@/lib/mock-data";
+import { getSessionToken } from "@/lib/server/session";
+import { getEnrichedMembers } from "@/lib/data/members";
+import { getPortalInfo } from "@/lib/data/portal";
 
 export const dynamic = "force-dynamic";
 
 async function fetchData() {
-  const [members, announcements, events, portalInfo] = await Promise.allSettled([
-    api.get<EnrichedMember[]>("/api/members"),
-    api.get<MockAnnouncement[]>("/api/announcements"),
-    api.get<MockEvent[]>("/api/events"),
-    api.get<PortalInfo>("/api/portal/info"),
+  const token = await getSessionToken();
+  const [membersResult, portalInfo] = await Promise.all([
+    getEnrichedMembers(token),
+    getPortalInfo(token),
   ]);
   return {
-    members: members.status === "fulfilled" ? members.value : [],
-    announcements:
-      announcements.status === "fulfilled" ? announcements.value : [],
-    events: events.status === "fulfilled" ? events.value : [],
-    portalInfo: portalInfo.status === "fulfilled" ? portalInfo.value : null,
+    members: membersResult.members,
+    // Announcements/events have no backend yet (portal v2) — in-memory mock.
+    announcements: mockDb.announcements,
+    events: mockDb.events,
+    portalInfo,
   };
 }
 
@@ -267,12 +267,9 @@ function HeroSection({
               <Link href="/signin" className="htb-button htb-button-secondary">
                 Sign in
               </Link>
-              <a
-                href="https://learn.cyberclubportal.com"
-                className="htb-button htb-button-ghost"
-              >
+              <Link href="/learn" className="htb-button htb-button-ghost">
                 Explore platform
-              </a>
+              </Link>
             </div>
 
             <div className="flex items-center gap-6 pt-4 htb-mono text-xs text-htb-text-dim">

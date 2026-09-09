@@ -12,6 +12,13 @@ export interface AuthResponse {
   expiresIn: number;
 }
 
+/** What the BFF returns to the browser after signin/signup or on /api/session. The JWT itself never leaves the server. */
+export interface SessionResponse {
+  user: User;
+  expiresIn: number;
+  portalRole?: string | null;
+}
+
 export interface SignupRequest {
   username: string;
   email: string;

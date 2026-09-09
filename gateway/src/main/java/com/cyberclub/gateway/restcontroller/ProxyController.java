@@ -26,8 +26,8 @@ public class ProxyController {
         "identity", "8082",
         "portal", "9000",
         "learn", "9002",
-        "challenge", "9004",
-        "community", "9006"
+        "challenge", "9006",
+        "community", "9004"
     );
 
     private static final Set<String> SERVICES = Set.of("identity", "portal", "learn", "challenge", "community");

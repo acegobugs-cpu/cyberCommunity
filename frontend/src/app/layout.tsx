@@ -3,7 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { extractSubdomain } from "@/lib/subdomains";
+import { extractSubdomain, SUBDOMAIN_PATHS, SUBDOMAINS } from "@/lib/subdomains";
 import { headers } from "next/headers";
 
 const geistSans = Geist({
@@ -16,19 +16,13 @@ const geistMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
+// Relative paths work on every host (localhost, *.localhost, production
+// subdomains) because each area is also mounted at a path.
 const SUBDOMAIN_NAV = [
-  { key: "portal", label: "Portal", href: "/" },
-  {
-    key: "community",
-    label: "Community",
-    href: "https://community.cyberclubportal.com",
-  },
-  { key: "learn", label: "Learn", href: "https://learn.cyberclubportal.com" },
-  {
-    key: "challenges",
-    label: "Challenges",
-    href: "https://challenges.cyberclubportal.com",
-  },
+  { key: SUBDOMAINS.PORTAL, label: "Portal", href: "/" },
+  { key: SUBDOMAINS.COMMUNITY, label: "Community", href: SUBDOMAIN_PATHS[SUBDOMAINS.COMMUNITY] },
+  { key: SUBDOMAINS.LEARN, label: "Learn", href: SUBDOMAIN_PATHS[SUBDOMAINS.LEARN] },
+  { key: SUBDOMAINS.CHALLENGES, label: "Challenges", href: SUBDOMAIN_PATHS[SUBDOMAINS.CHALLENGES] },
 ];
 
 export const metadata = {
