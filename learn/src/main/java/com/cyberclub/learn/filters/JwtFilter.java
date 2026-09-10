@@ -1,6 +1,6 @@
 package com.cyberclub.learn.filters;
 
-import java.io.IOException;
+import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -23,7 +23,7 @@ public class JwtFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException{
 
         try {
-            String userId = extractToken(request);
+            UUID userId = extractToken(request);
             if(userId != null){
                 UserContext.setUserId(userId);
             }
@@ -33,12 +33,16 @@ public class JwtFilter extends OncePerRequestFilter {
         }
     }
 
-    private String extractToken(HttpServletRequest request){
+    private UUID extractToken(HttpServletRequest request) {
         String userId = request.getHeader("X-User-Id");
-        if(userId == null || userId.isBlank()){
+        if (userId == null || userId.isBlank()) {
             return null;
         }
-        return userId;
+        try {
+            return UUID.fromString(userId);
+        } catch (IllegalArgumentException ex) {
+            return null; // malformed header → treat as anonymous, don't 500
+        }
     }
     
 }

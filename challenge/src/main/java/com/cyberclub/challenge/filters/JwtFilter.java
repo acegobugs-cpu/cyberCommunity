@@ -34,16 +34,16 @@ public class JwtFilter extends OncePerRequestFilter {
         }
     }
 
-    private UUID extractToken(HttpServletRequest request){
-
-        String auth = request.getHeader("X-User-Id");
-        
-        if(auth == null || auth.isBlank()){
+    private UUID extractToken(HttpServletRequest request) {
+        String userId = request.getHeader("X-User-Id");
+        if (userId == null || userId.isBlank()) {
             return null;
         }
-
-        return UUID.fromString(auth);
-
+        try {
+            return UUID.fromString(userId);
+        } catch (IllegalArgumentException ex) {
+            return null; // malformed header → treat as anonymous, don't 500
+        }
     }
     
 }

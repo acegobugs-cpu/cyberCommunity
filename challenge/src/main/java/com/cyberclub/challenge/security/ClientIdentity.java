@@ -16,13 +16,13 @@ public class ClientIdentity{
         this.webClient = webClient;
     }
 
-    public IdentityCheckResult checkMembership(UUID userId, String tenantKey){
+    public IdentityCheckResult checkMembership(UUID userId){
         return webClient
                 .get()
                 .uri(uriBuilder -> uriBuilder
                     .path("/private/api/member/check")
                     .queryParam("userId", userId)
-                    .queryParam("tenantKey", tenantKey)
+                    .queryParam("serviceName", "challenge")
                     .build()
                 )
                 .retrieve()

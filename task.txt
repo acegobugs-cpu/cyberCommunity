@@ -14,7 +14,7 @@ refactor: Validate required environment variables and provide clear startup feed
 refactor: Docker file mvnw needs to be executable chmod +x
 refactor: Thread local clear enforcement
 refactor: webflux and starter-web conflicting
-refactor: UUID.fromString(string)
+~~refactor: UUID.fromString(string)~~ done 2026-09-10 (challenge JwtFilter)
 
 docker run --rm --network cyber-club-portal_app-network -e DATABASE_URL=jdbc:postgresql://postgres:5432/multi_tenant_db?user=appuser_dev\&password=dev_secure_password -e POSTGRES_USER=appuser_dev -e POSTGRES_PASSWORD=dev_secure_password -e SPRING_PROFILES_ACTIVE=docker -v "$PWD":/app -w /app maven:3.9.5-eclipse-temurin-17 mvn test
 profile active docker issues

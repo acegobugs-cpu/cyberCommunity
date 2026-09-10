@@ -2,6 +2,7 @@ package com.cyberclub.identity.user;
 
 import com.cyberclub.identity.BaseIntegrationTest;
 import com.cyberclub.identity.api.dtos.User;
+import com.cyberclub.identity.exceptions.ConflictException;
 import com.cyberclub.identity.repository.UserRepo;
 import com.cyberclub.identity.services.UserRegService;
 
@@ -38,7 +39,7 @@ class UserRegTest extends BaseIntegrationTest {
     void rejects_duplicate_email() {
         service.register("A", "dup@example.com", "pass");
 
-        assertThrows(IllegalStateException.class, () ->
+        assertThrows(ConflictException.class, () ->
             service.register("B", "dup@example.com", "pass")
         );
     }

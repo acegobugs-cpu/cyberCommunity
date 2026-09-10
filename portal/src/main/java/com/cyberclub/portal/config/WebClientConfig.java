@@ -12,7 +12,10 @@ import com.cyberclub.portal.filters.InternalAuthFilter;
 public class WebClientConfig {
 
     @Bean
-    public WebClient identityWebClient( @Value("${identity.base-url}") String baseUrl, InternalAuthFilter internalAuthFilter){
+    public WebClient identityWebClient( 
+        @Value("${identity.base-url}") String baseUrl, 
+        InternalAuthFilter internalAuthFilter){
+            
         return WebClient.builder()
                         .baseUrl(baseUrl)
                         .filter(internalAuthFilter.filter())

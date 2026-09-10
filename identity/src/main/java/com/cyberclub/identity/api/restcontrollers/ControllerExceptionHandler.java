@@ -10,8 +10,9 @@ import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.cyberclub.identity.api.restcontrollers.TraceContext;
 import com.cyberclub.identity.api.dtos.ErrorResponse;
+import com.cyberclub.identity.exceptions.UnauthorizedException;
+import com.cyberclub.identity.exceptions.ConflictException;
 
 @RestControllerAdvice
 public class ControllerExceptionHandler {
@@ -22,13 +23,13 @@ public class ControllerExceptionHandler {
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErrorResponse handleError(Exception ex, HttpServletRequest req){
         log.error("[{}] Unhandled exception at {}  : {}", 
-            TraceContext.getCorrelationId(), req.getRequestURI(), ex.getMessage());
+            req.getHeader("X-Request-Id"), req.getRequestURI(), ex.getMessage());
 
         return new ErrorResponse(
             "Internal server error",
             "internal server error",
             req.getRequestURI(),
-            TraceContext.getCorrelationId(),
+            req.getHeader("X-Request-Id"),
             Instant.now()
             );
     }
@@ -40,19 +41,19 @@ public class ControllerExceptionHandler {
             "Unauthorized",
             ex.getMessage(),
             req.getRequestURI(),
-            TraceContext.getCorrelationId(),
+            req.getHeader("X-Request-Id"),
             Instant.now()
         );
     }
 
-    @ExceptionHandler(IllegalStateException.class)
+    @ExceptionHandler(ConflictException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
-    public ErrorResponse handleIllegalState( IllegalStateException ex, HttpServletRequest req){
+    public ErrorResponse handleConflict( ConflictException ex, HttpServletRequest req){
         return new ErrorResponse(
             "Conflict",
             ex.getMessage(),
             req.getRequestURI(),
-            TraceContext.getCorrelationId(),
+            req.getHeader("X-Request-Id"),
             Instant.now()
         );
     }

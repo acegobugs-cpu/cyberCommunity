@@ -8,18 +8,18 @@ Baseline for the next snapshot. Grouped by severity; each item names the file(s)
 
 | # | Item | Where |
 | :-- | :-- | :-- |
-| ~~A1~~ | ~~Gateway local-mode port map swaps community (→9006) and challenge (→9004)~~ **fixed** — map now `challenge 9006`, `community 9004` | `gateway/.../ProxyController.java` |
-| ~~A2~~ | ~~Identity has no `@ControllerAdvice`~~ **fixed** — `ControllerExceptionHandler` maps `UnauthorizedException→401`, `IllegalStateException→409`, other→500. ⚠ imports `javax.servlet.http.HttpServletRequest`; Spring Boot 3 needs `jakarta.servlet.http.HttpServletRequest` or the class will not compile | `identity/.../ControllerExceptionHandler.java` |
-| ~~A3~~ | ~~Frontend `api/members` calls the gateway without `Authorization`~~ **fixed** — `lib/data/members.ts` reads the session cookie and sends `Authorization`; server components call it directly (they previously fetched their own `/api/*` with a relative URL, which fails in Node) | `frontend/src/lib/data/members.ts`, `app/api/members/route.ts`, `app/page.tsx`, `(portal)/members/page.tsx` |
-| ~~A4~~ | ~~Frontend `GET /api/setting` and `GET /api/users/[id]` forward to portal endpoints that do not exist~~ **fixed (frontend side)** — `users/[id]` route deleted; `setting` GET removed, settings page starts from defaults. Backend `GET /setting` / `GET /users/{id}` remain unimplemented (portal v2) | `frontend/src/app/api/setting/route.ts`, `(portal)/settings/page.tsx` |
-| A5 | `POST /setting` requires role `ADMIN`; `GET /users` requires exactly `USER`. Every registered user is `USER`. **Frontend side mitigated:** settings page shows the role and disables Save unless `ADMIN`; header hides Settings for non-admins. Backend policy/role-granting still needs a decision | `portal/.../Policies.java`, `SettingService.java`, `UserService.java`; `identity/.../MembershipRepo.java` |
-| A6 | Challenge `JwtFilter` does `UUID.fromString(header)` unguarded → 500 on malformed `X-User-Id` | `challenge/.../filters/JwtFilter.java` (task.txt "UUID.fromString") |
-| A7 | Challenge `ClientIdentity` uses query param `tenantKey` (identity expects `serviceName`) and sends no `X-Internal-Auth` | `challenge/.../security/ClientIdentity.java` |
-| A8 | `make restart` passes `SERVICES=` but the Makefile reads `SS` | `Makefile` |
-| A9 | Compose runs `learn` with `maven:3.9.5-eclipse-temurin-17` while `learn/pom.xml` targets Java 21 | `docker-compose.yml` |
 | A10 | CI workflow lives in `.github/workflow/` (singular) and uses JDK 11 → never runs, and would fail if it did | `.github/workflow/ci.yml` |
 | A11 | `make start` / `start-app.sh` try to migrate `community` and `challenge` schemas from `infra/migrations/<schema>` folders that do not exist | `Makefile`, `infra/start-app.sh` |
-| A12 | Gateway sends `X-Request-Id`; portal/learn read `X-Correlation-Id` → correlation ids never match across hops | `gateway/.../Forward.java`, `portal|learn/.../CorrelationFilter.java` |
+| A5 | `POST /setting` requires role `ADMIN`; `GET /users` requires exactly `USER`. Every registered user is `USER`. **Frontend side mitigated:** settings page shows the role and disables Save unless `ADMIN`; header hides Settings for non-admins. Backend policy/role-granting still needs a decision | `portal/.../Policies.java`, `SettingService.java`, `UserService.java`; `identity/.../MembershipRepo.java` |
+| ~~A1~~ | ~~Gateway local-mode port map swaps community (→9006) and challenge (→9004)~~ **fixed** — map now `challenge 9006`, `community 9004` | `gateway/.../ProxyController.java` |
+| ~~A2~~ | ~~Identity has no `@ControllerAdvice`~~ **fixed (2026-09-10, verified: 6/6 identity tests pass)** — `ControllerExceptionHandler` maps `UnauthorizedException→401`, new `ConflictException→409` (duplicate e-mail), other→500; `correlationId` in the error body = incoming `X-Request-Id`. `jakarta.servlet` import; dead custom `exceptions/IllegalStateException` removed | `identity/.../ControllerExceptionHandler.java`, `exceptions/ConflictException.java`, `services/UserRegService.java`, `test/.../UserRegistrationTest.java` |
+| ~~A3~~ | ~~Frontend `api/members` calls the gateway without `Authorization`~~ **fixed** — `lib/data/members.ts` reads the session cookie and sends `Authorization`; server components call it directly (they previously fetched their own `/api/*` with a relative URL, which fails in Node) | `frontend/src/lib/data/members.ts`, `app/api/members/route.ts`, `app/page.tsx`, `(portal)/members/page.tsx` |
+| ~~A4~~ | ~~Frontend `GET /api/setting` and `GET /api/users/[id]` forward to portal endpoints that do not exist~~ **fixed (frontend side)** — `users/[id]` route deleted; `setting` GET removed, settings page starts from defaults. Backend `GET /setting` / `GET /users/{id}` remain unimplemented (portal v2) | `frontend/src/app/api/setting/route.ts`, `(portal)/settings/page.tsx` |
+| ~~A6~~ | ~~Challenge `JwtFilter` does `UUID.fromString(header)` unguarded~~ **fixed (2026-09-10)** — malformed `X-User-Id` is caught and treated as anonymous (same policy as learn/community) | `challenge/.../filters/JwtFilter.java` |
+| ~~A7~~ | ~~Challenge `ClientIdentity` uses `tenantKey` and sends no `X-Internal-Auth`~~ **fixed (2026-09-10)** — `checkMembership(UUID)` queries `serviceName=challenge`; new outbound `InternalAuthFilter` wired into `identityWebClient`; `INTERNAL_GATEWAY_SECRET` added to compose; `identity.base-url` corrected (`localhost:8082` local, `identity:8080` docker) | `challenge/.../security/ClientIdentity.java`, `filters/InternalAuthFilter.java`, `config/WebClientConfig.java`, `application*.properties`, `docker-compose.yml` |
+| ~~A8~~ | ~~`make restart` passes `SERVICES=` but the Makefile reads `SS`~~ **fixed (2026-09-10)** — passes `SS=`; `pkill` pattern now `<svc>.*spring-boot` so `spring-boot:run` JVMs are actually killed | `Makefile` |
+| ~~A9~~ | ~~Compose runs `learn` on temurin-17 while `learn/pom.xml` targets 21~~ **fixed (2026-09-10)** — `learn/pom.xml` now `java.version=17`. (`learn/Dockerfile` still builds on temurin-21; harmless) | `learn/pom.xml` |
+| ~~A12~~ | ~~Gateway sends `X-Request-Id`; portal/learn read `X-Correlation-Id`~~ **fixed (2026-09-10)** — standardised on **`X-Request-Id`** end-to-end: gateway generates it (overwriting any client value), portal/learn `CorrelationFilter` read + echo it, identity puts it in error bodies | `gateway/.../Forward.java`, `portal|learn/.../CorrelationFilter.java`, `identity/.../ControllerExceptionHandler.java` |
 
 ## B. Security gaps
 
@@ -98,3 +98,18 @@ profile active docker issues
 Verified with `tsc --noEmit`, `eslint src`, `next build` (all clean).
 
 **Still open on the frontend:** i18n behind the language selector; loading skeletons; member detail page (needs backend `GET /users/{id}`); CSRF hardening for cookie-authenticated POSTs (currently `SameSite=Lax` + same-origin BFF; add an origin check or CSRF token before exposing cross-site).
+
+## Fix log (2026-09-10) — backend defects A2, A6, A7, A8, A9, A12
+
+All six verified by reading the code; A2 additionally by running `identity` tests (`LoginTest` 3/3, `UserRegTest` 2/2, `JwtTokenTest` 1/1) in the compose Maven image with Testcontainers.
+
+| Item | Result |
+| :-- | :-- |
+| A2 | 401 / 409 / 500 mapping live; `ConflictException` replaces the ambiguous `IllegalStateException` |
+| A6 | malformed `X-User-Id` → anonymous, no 500 |
+| A7 | challenge identity client sends `X-Internal-Auth` and `serviceName=challenge`; ready for first authorised endpoint |
+| A8 | `make restart` works; `stop` kills `spring-boot:run` JVMs |
+| A9 | learn builds on 17 in compose |
+| A12 | one trace header, `X-Request-Id`, from gateway to every service and back |
+
+**Remaining backend items:** A5 (role model / admin promotion), A10 (CI folder + JDK), A11 (Makefile/start-app migrate non-existent schemas), all of section B except B4/B8 (frontend side), section C.

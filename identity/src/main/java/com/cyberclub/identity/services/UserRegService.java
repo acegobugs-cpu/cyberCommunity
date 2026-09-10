@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.cyberclub.identity.api.dtos.User;
 import com.cyberclub.identity.exceptions.UnauthorizedException;
+import com.cyberclub.identity.exceptions.ConflictException;
 import com.cyberclub.identity.repository.UserRepo;
 
 @Service
@@ -27,7 +28,7 @@ public class UserRegService{
     @Transactional
     public User register(String username, String email, String password){
         if(userRepo.existsByEmail(email)){
-            throw new IllegalStateException("email already in use");
+            throw new ConflictException("email already in use");
         }
         String HashedPassword = encoder.encode(password);
 
@@ -43,7 +44,7 @@ public class UserRegService{
             userRepo.save(user);
             return user;
         } catch (DataIntegrityViolationException ex){
-            throw new IllegalStateException("email already in use", ex);
+            throw new ConflictException("email already in use");
         }
     }
 

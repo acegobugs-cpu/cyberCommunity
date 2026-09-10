@@ -35,13 +35,13 @@ public class CorrelationFilter extends OncePerRequestFilter{
         FilterChain filterChain
     ) throws ServletException, IOException{
 
-        String correlationId = request.getHeader("X-Correlation-Id");
+        String correlationId = request.getHeader("X-Request-Id");
         if(!isValidCorrelationId(correlationId)){
             correlationId = UUID.randomUUID().toString();
         }
 
         TraceContext.setCorrelationId(correlationId);
-        response.setHeader("X-Correlation-Id", correlationId);
+        response.setHeader("X-Request-Id", correlationId);
 
         try{
             filterChain.doFilter(request, response);

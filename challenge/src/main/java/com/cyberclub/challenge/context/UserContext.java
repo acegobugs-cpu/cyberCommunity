@@ -4,12 +4,12 @@ import java.util.UUID;
 
 public final class UserContext {  
     
-    private static final ThreadLocal<String> CURRENT_USER_ID = new ThreadLocal<>();
+    private static final ThreadLocal<UUID> CURRENT_USER_ID = new ThreadLocal<>();
 
     private UserContext(){};
 
     public static void setId(UUID userId) {
-        CURRENT_USER_ID.set(userId.toString());
+        CURRENT_USER_ID.set(userId);
     }
 
     // public static void setRole(String role){
@@ -17,12 +17,12 @@ public final class UserContext {
     // }
 
     public static UUID getId(){
-        String userId = CURRENT_USER_ID.get();
+        UUID userId = CURRENT_USER_ID.get();
         if(userId == null){
             throw new IllegalStateException("no user in context");
         }
 
-        return UUID.fromString(userId);
+        return userId;
     }
 
     public static boolean isSet(){

@@ -89,14 +89,14 @@ test:
 restart:
 	@echo "Restarting services: $(SS)"
 	@for s in $(SS); do \
-		pkill -f "$$s/target/.*spring-boot" || true; \
+		pkill -f "$$s.*spring-boot" || true; \
 	done
-	@$(MAKE) start SERVICES="$(SS)"
+	@$(MAKE) start SS="$(SS)"
 
 stop:
 	@echo "Stopping services: $(SS)"
 	@for s in $(SS); do \
-		pkill -f "$$s/target/.*spring-boot" || true; \
+		pkill -f "$$s.*spring-boot" || true; \
 	done
 
 status:

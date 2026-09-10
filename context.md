@@ -15,24 +15,24 @@ docs/plan/            layered design (vision → architecture → domains → im
 docs/timeline/<date>/ as-built snapshots + gaps.md        ← source of truth for "what exists"
 ```
 
-## State (2026-09-09)
+## State (2026-09-10)
 
 | Component | Status |
 | :-- | :-- |
 | gateway | ✅ resolves service (Host subdomain → `X-Service-Name` → `portal`), verifies HS256 JWT, proxies with `X-Internal-Auth`, `X-User-Id`, `X-Request-Id`; unauthenticated → routed to identity |
-| identity | ✅ `POST /signup`, `POST /signin`, `/private/api/**` (member check, members list); BCrypt(12); JWT 900 s. No OIDC/refresh tokens |
+| identity | ✅ `POST /signup`, `POST /signin`, `/private/api/**` (member check, members list); BCrypt(12); JWT 900 s; errors → 401 `UnauthorizedException` / 409 `ConflictException` / 500 via `ControllerExceptionHandler`. No OIDC/refresh tokens |
 | portal | ✅ `GET /portal/info` (MEMBER or ADMIN), `GET /users` (MEMBER = role `USER` only), `POST /setting` (ADMIN). Reference service for filters/policies/error handler |
 | learn | ✅ GraphQL `courses`, `course`, `createCourse`, `createLesson`; **no authorization**; no tests |
-| community / challenge | 🚧 skeletons: datasource + `X-User-Id` filter only; no GatewayTrustFilter, no endpoints (challenge has `GET /` → "HOME") |
+| community / challenge | 🚧 skeletons: datasource + `X-User-Id` filter only; no GatewayTrustFilter, no endpoints (challenge has `GET /` → "HOME"). Challenge already has a correct identity client (`ClientIdentity` + outbound `InternalAuthFilter`) ready for its first authorised endpoint |
 | frontend | ✅ signup/signin/dashboard/members/settings wired via BFF; **httpOnly cookie session** (`ccp_session`), JWT never reaches the browser. Announcements/events/community/learn/challenges = static or mock |
 | infra | Compose runs services from source (`./mvnw spring-boot:run`) + Flyway jobs for identity/portal/learn + frontend; CI file is at `.github/workflow/` (singular → not discovered) |
 
-Known defects: `docs/timeline/2026-09-09/gaps.md`. Open TODOs: `task.txt`.
+Known defects: `docs/timeline/2026-09-09/gaps.md` (A1–A4, A6–A9, A12 fixed; A5, A10, A11 + sections B/C open). Open TODOs: `task.txt`.
 
 ## Hard rules (do not violate without asking)
 
 1. **Schema-per-service.** A service touches only its own schema; cross-service data goes over HTTP to identity's `/private/api/**`. No cross-schema SQL, no FKs across schemas.
-2. **Header contract.** Gateway → service: `X-Internal-Auth` (shared secret, constant-time compare), `X-User-Id`, `X-Request-Id`. Services never parse JWTs. Authorization = `auth.require(Policies.MEMBER | ADMIN)` after a call to identity `GET /private/api/member/check?userId&serviceName`.
+2. **Header contract.** Gateway → service: `X-Internal-Auth` (shared secret, constant-time compare), `X-User-Id`, `X-Request-Id` (the one trace id — services read + echo it, identity puts it in error bodies; there is no `X-Correlation-Id`). Services never parse JWTs. Authorization = `auth.require(Policies.MEMBER | ADMIN)` after a call to identity `GET /private/api/member/check?userId&serviceName`.
 3. **Migrations are external.** `spring.flyway.enabled=false`, `ddl-auto=none` everywhere. New tables = new `infra/migrations/<schema>/V<n>__*.sql` (+ Compose `migrate-<schema>` job if the schema has none yet).
 4. **JdbcTemplate + records, hand-written SQL.** No JPA entities.
 5. **Frontend never calls the gateway directly.** Browser → `/api/*` route handler → `forwardToGateway` / `gatewayFetch` (`src/lib/gateway.ts`). Server components use `src/lib/data/*` + `getSessionToken()`; client uses `src/lib/api.ts` + `useAuth()`.

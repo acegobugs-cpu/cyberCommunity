@@ -1,6 +1,7 @@
 package com.cyberclub.portal.filters;
 
 import java.io.IOException;
+import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,18 +26,29 @@ public class JwtFilter extends OncePerRequestFilter {
         FilterChain filterChain
     )throws ServletException, IOException{
         try{
-            String userId = request.getHeader("X-User-Id");
-            if(userId == null || userId.isBlank()){
-                log.error("userId not found.. userId = {}", userId);
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "userId missing");
-                return;
-            }
+            UUID userId = extractToken(request);
             if(userId != null){
                 UserContext.set(userId);
             }
             filterChain.doFilter(request, response);
         } finally {
             UserContext.clear();
+        }
+    }
+
+    private UUID extractToken(HttpServletRequest request) {
+        String userId = request.getHeader("X-User-Id");
+        if (userId == null || userId.isBlank()) {
+            log.error("userId not found.. userId = {}", userId);
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "userId missing");
+            return null;
+        }
+        try {
+            return UUID.fromString(userId);
+        } catch (IllegalArgumentException ex) {
+            log.error("userId not valid UUID.. userId = {}", userId);
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "userId Invalid UUID");
+            return null;
         }
     }
 
