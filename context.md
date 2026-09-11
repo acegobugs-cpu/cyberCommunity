@@ -11,7 +11,8 @@ gateway/ identity/ portal/ learn/ community/ challenge/   Spring Boot 3.5.9, one
 frontend/                                                 Next.js 16 App Router, BFF route handlers under src/app/api/**
 infra/migrations/<schema>/V*.sql                          Flyway, per schema; infra/start-app.sh, flyway*.conf
 docker-compose.yml  Makefile  .env(git-ignored)           local orchestration
-docs/plan/            layered design (vision → architecture → domains → implementation → roadmap)
+docs/plan 00/         platform foundation plan (vision → architecture → domains → implementation → roadmap) — done
+docs/plan 01/         Learn plan: goals → domain model → API → data / labs+Go runner / frontend → roadmap L0–L7 — CURRENT WORK
 docs/timeline/<date>/ as-built snapshots + gaps.md        ← source of truth for "what exists"
 ```
 
@@ -36,7 +37,7 @@ Known defects: `docs/timeline/2026-09-09/gaps.md` (A1–A4, A6–A9, A12 fixed; 
 3. **Migrations are external.** `spring.flyway.enabled=false`, `ddl-auto=none` everywhere. New tables = new `infra/migrations/<schema>/V<n>__*.sql` (+ Compose `migrate-<schema>` job if the schema has none yet).
 4. **JdbcTemplate + records, hand-written SQL.** No JPA entities.
 5. **Frontend never calls the gateway directly.** Browser → `/api/*` route handler → `forwardToGateway` / `gatewayFetch` (`src/lib/gateway.ts`). Server components use `src/lib/data/*` + `getSessionToken()`; client uses `src/lib/api.ts` + `useAuth()`.
-6. **Java by default.** Other languages only for the planned off-request-path components: judge (Python), CTF infra controller (Go), media (Go|Rust), analytics (Python). See README.
+6. **Java by default.** Other languages only for planned off-request-path / internal-action components: **lab-runner (Go, Plan 01 L6 — domain-neutral, holds the Docker socket, no DB)**, judge (Python), media (Go|Rust), analytics (Python). See README.
 7. **Stay on option A** (independent Maven projects). Do not introduce a shared `common` module or collapse services without an explicit decision (README → "Structure decision to revisit").
 8. Filters that set ThreadLocals (`UserContext`, `TraceContext`) must clear them in `finally`.
 
@@ -67,8 +68,9 @@ docker logs migrate-identity            # verify migrations; tables are in schem
 | Need | Open |
 | :-- | :-- |
 | Exact endpoints / SQL / filters of a service | `docs/timeline/2026-09-09/services/<svc>.md` |
-| Why a decision was made | `docs/plan/01-architecture.md` (AD-1…AD-9), `docs/plan/03-implementation/*.md` |
-| What to build next | `docs/plan/04-roadmap.md`, `gaps.md`, `task.txt` |
+| Why a platform decision was made | `docs/plan 00/01-architecture.md` (AD-1…AD-9), `docs/plan 00/03-implementation/*.md` |
+| Learn: model / API / DDL / labs | `docs/plan 01/01-domain-model.md`, `02-api.md`, `03-data-and-migrations.md`, `04-labs-and-runner.md` |
+| What to build next | `docs/plan 01/06-roadmap.md` (current phase), `gaps.md`, `task.txt` |
 | Frontend routes / BFF / auth flow | `docs/timeline/2026-09-09/frontend.md` (note: auth is now cookie-based, see gaps.md fix log) |
 
 ## Do not read / ingest

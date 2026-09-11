@@ -7,7 +7,7 @@ The **Cyber Club Portal** is a **service-oriented modular platform** designed to
 Its primary purpose is to **foster education, collaboration, and competitive skill development** by providing dedicated services for learning, communication, and hands-on challenges. Each functional area is its own service with its own data, behind a single gateway and a single login.
 
 > **Status legend used throughout this file:** ✅ implemented · 🚧 partial / skeleton · 📋 planned
-> Detailed as-built documentation lives in [`docs/timeline/`](docs/timeline/2026-09-09/README.md); the design plan and roadmap live in [`docs/plan/`](docs/plan/README.md).
+> Detailed as-built documentation lives in [`docs/timeline/`](docs/timeline/2026-09-09/README.md); the design plans live in numbered folders — [`docs/plan 00/`](docs/plan%2000/README.md) (platform foundation, done) and [`docs/plan 01/`](docs/plan%2001/README.md) (Learn, in progress). Each plan is a sequence of phases that end in something concrete and finished.
 
 ---
 
@@ -25,12 +25,13 @@ Its primary purpose is to **foster education, collaboration, and competitive ski
 
 ### 📋 Planned polyglot components
 
-These are the components where a language other than Java is justified by the problem, not by preference. Rule: *Java by default; another language only for a component that is off the user request path, has a concrete runtime/ecosystem reason, and is owned by one domain.* See [`docs/plan/03-implementation/`](docs/plan/03-implementation/) once the policy doc is written.
+These are the components where a language other than Java is justified by the problem, not by preference. Rule: *Java by default; another language only for a component that (a) is off the user request path or an internal action endpoint, (b) has a concrete runtime/ecosystem reason, and (c) is owned by one domain **or** is domain-neutral infrastructure that stores no business data.* The first such component is the **lab-runner (Go)**, specified in [`docs/plan 01/04-labs-and-runner.md`](docs/plan%2001/04-labs-and-runner.md).
 
 | Component | Owner domain | Language | Why this language | Integration |
 | :-- | :-- | :-- | :-- | :-- |
+| **lab-runner** (= "CTF infrastructure controller") | domain-neutral infra; clients: Learn (labs), Challenge (CTF instances) | **Go** | Docker Engine SDK, netlink/WireGuard libraries, goroutine TTL reaper, static binary; only component holding the Docker socket | Internal REST `POST/GET/DELETE /instances` with `X-Internal-Auth`; state = Docker labels, no DB; per-session isolated networks, resource limits, hard TTL. Plan 01 Phase L6 |
 | **Judge / sandbox worker** | Challenge | **Python** | Fork/exec, cgroups, seccomp, per-run throwaway containers, CTF tooling (pwntools, checkers); JVM start-up per run is unsuitable | Worker, not behind the gateway. Polls `challenge.submissions` (`FOR UPDATE SKIP LOCKED`), runs in `docker run --rm --network none …`, writes verdict |
-| **CTF infrastructure controller** | Challenge | **Go** | Docker Engine / containerd / WireGuard / netlink APIs are Go-native; kernel network programming | Internal HTTP service called by `challenge` with `X-Internal-Auth`; spins up per-user target instances with TTL, hands out VPN configs |
+| **CTF infrastructure controller** | Challenge | **Go** | *merged into the lab-runner above* — Challenge adds multi-container specs, WireGuard peers, team instances in Plan 02 | — |
 | **Media / attachment pipeline** | Portal (or own `media` schema) | **Go or Rust** — *undecided* | Untrusted binary parsing (images, PDFs) isolated from the main app; memory safety (Rust) vs. simpler ops (Go) | Behind the gateway for uploads → forces the gateway to stream bodies instead of buffering 2 MB; object storage (MinIO/S3) + signed URLs |
 | **Analytics / batch jobs** | cross-domain, read-only | **Python** | pandas / numpy / scikit-learn; nightly leaderboard recompute, completion stats, submission anomaly detection | Must respect schema-per-service: reads via each service's internal API or per-schema read-only DB roles, never cross-schema SQL |
 
@@ -95,10 +96,11 @@ Cyber-Club-Portal/
 ├── infra/                    # flyway confs, migrations/<schema>/, start-app.sh
 ├── tools/flyway/             # vendored Flyway CLI (git-ignored)
 ├── docs/
-│   ├── plan/                 # layered design plan: vision → architecture → domains → implementation → roadmap
+│   ├── plan 00/              # platform foundation plan (done): vision → architecture → domains → implementation → roadmap
+│   ├── plan 01/              # Learn plan (current): goals → domain model → API → data / labs+runner / frontend → roadmap L0–L7
 │   └── timeline/<date>/      # dated as-built snapshots + gaps
 ├── docker-compose.yml  Makefile  .env (git-ignored)  task.txt
-└── 📋 judge/  infra-controller/  media/  analytics/    # planned polyglot components
+└── 📋 lab-runner/ (Go, Plan 01)  judge/ (Python)  media/  analytics/    # planned polyglot components
 ```
 
 ### 🤔 Structure decision to revisit: Maven multi-module
@@ -162,12 +164,12 @@ gateway/ identity/ portal/ learn/ community/ challenge/   # thin bootable module
 
 ## 🗺️ Roadmap (summary)
 
-See [`docs/plan/04-roadmap.md`](docs/plan/04-roadmap.md) for phases and "done when" criteria, and [`docs/timeline/2026-09-09/gaps.md`](docs/timeline/2026-09-09/gaps.md) for the current defect list.
+See [`docs/plan 00/04-roadmap.md`](docs/plan%2000/04-roadmap.md) (platform phases, done), [`docs/plan 01/06-roadmap.md`](docs/plan%2001/06-roadmap.md) (Learn phases L0–L7, current), and [`docs/timeline/2026-09-09/gaps.md`](docs/timeline/2026-09-09/gaps.md) for the current defect list.
 
 1. Identity hardening — error → status mapping, DTO validation, admin promotion endpoint, refresh tokens.
 2. Portal v2 — announcements & events API (retire frontend mocks), `GET /setting`, `GET /users/{id}`.
-3. Learn v2 — `ADMIN`-gated mutations, progress tracking, quizzes, tests.
-4. Challenge v2 — contests/CTFs/leaderboards API + **Judge worker (Python)** + **infra controller (Go)**.
+3. **Learn (Plan 01, current)** — L0 harden → L1 courses/modules/typed lessons + authoring → L2 enrollment & progress → L3 roadmaps → L4 quizzes → L5 projects & review → L6 labs + **lab-runner (Go)** → L7 seed & snapshot.
+4. Challenge (Plan 02) — contests/CTFs/leaderboards API + **Judge worker (Python)**; extends the lab-runner with multi-container specs, WireGuard, team instances.
 5. Community v2 — forums, groups, messaging.
 6. **Media pipeline (Go or Rust)**, **analytics jobs (Python)**.
 7. Platform — gateway 401s and streaming bodies, membership caching, rate limiting, frontend in Compose, JDK alignment, config fail-fast validation, fix CI location, and re-evaluate the Maven multi-module structure.

@@ -13,5 +13,5 @@ Start by reading [context.md](../context.md) (≈100 lines: repo map, current st
 
 - Backend: Spring Boot 3.5.9, `JdbcTemplate` + records, hand-written SQL, `jakarta.*` imports (never `javax.servlet`). New tables go in `infra/migrations/<schema>/V<n>__*.sql`, never via `ddl-auto`.
 - Frontend: Next.js 16 App Router, TypeScript strict, Tailwind 4 `htb-*` tokens. Browser → `/api/*` BFF → gateway; session is an httpOnly cookie (`src/lib/server/session.ts`); client uses `src/lib/api.ts` + `useAuth()`.
-- Docs: when behaviour changes, update `docs/timeline/<date>/gaps.md` (fix log) or add a new dated snapshot — do not edit `docs/plan/` to match code; the plan records intent.
+- Docs: when behaviour changes, update `docs/timeline/<date>/gaps.md` (fix log) or add a new dated snapshot — do not edit `docs/plan NN/` to match code; plans record intent. Current work follows `docs/plan 01/06-roadmap.md` (Learn); check which phase is active before adding Learn features.
 - Keep `context.md` current when ports, endpoints, rules or commands change; it is the cheapest context the agent has.

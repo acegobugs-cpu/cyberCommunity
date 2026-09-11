@@ -6,15 +6,15 @@
 flowchart LR
     B[Browser] --> FE[Next.js frontend<br/>:3000]
     FE -->|/api/* route handlers| GW[Gateway<br/>:8080]
-    GW --> ID[Identity]
     GW --> PO[Portal]
     GW --> LE[Learn]
+    GW --> ID[Identity]
     GW --> CO[Community]
     GW --> CH[Challenge]
-    PO -.->|internal HTTP| ID
     LE -.-> ID
     CO -.-> ID
     CH -.-> ID
+    PO -.-> ID
     ID --> DB[(PostgreSQL<br/>schema: identity)]
     PO --> DB2[(schema: portal)]
     LE --> DB3[(schema: learn)]

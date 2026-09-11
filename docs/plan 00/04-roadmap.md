@@ -1,6 +1,6 @@
-# Level 4 — Roadmap
+# Level 4 — Roadmap (Plan 00)
 
-Build order follows principle 7 (*ship vertically*): the thinnest authenticated slice first, then widen one domain at a time. Each phase has a "done when" that can be demonstrated.
+Build order follows principle 7 (*ship vertically*): the thinnest authenticated slice first, then widen one domain at a time. Each phase has a "done when" that can be demonstrated. **Plan 00 ends with every service present in the topology and the platform contract proven through Portal; the domain roadmaps continue in Plan 01 (Learn), 02 (Challenge), 03 (Community), 04 (Portal v2).**
 
 ```mermaid
 gantt
@@ -9,9 +9,9 @@ gantt
     section Foundation
     P0 Repo, DB, migrations, compose        :p0, 0, 1
     P1 Identity + Gateway (auth slice)      :p1, after p0, 2
-    section Domains
+    section Reference + slots
     P2 Portal (reference service)           :p2, after p1, 2
-    P3 Learn (GraphQL)                      :p3, after p2, 1
+    P3 Learn slot (GraphQL baseline)        :p3, after p2, 1
     P4 Community + Challenge skeletons      :p4, after p2, 1
     section UI
     P5 Frontend (design + auth + portal)    :p5, after p2, 2
@@ -45,12 +45,14 @@ gantt
 
 **Done when:** a `USER` gets 200 on `/portal/info` and `/users`, 403 on `/setting`; an `ADMIN` (set via SQL) gets 200 on `/setting`.
 
-## Phase 3 — Learn
+## Phase 3 — Learn slot (GraphQL baseline)
 
-- Copy the template; add `spring-boot-starter-graphql`, `schema.graphqls`, `CourseRepo`/`LessonRepo`, services, resolvers; GraphiQL on.
-- Compose `migrate-learn` job + `learn` service.
+Purpose: prove that a **second API style** (GraphQL) fits the service template and the gateway, and reserve Learn's place in the topology. The real content model is Plan 01.
 
-**Done when:** `createCourse` + `createLesson` mutations and `courses { lessons { title } }` query work through the gateway with a valid token.
+- Copy the template; add `spring-boot-starter-graphql`, a minimal `schema.graphqls` (`courses`, `course`, `createCourse`, `createLesson`), `CourseRepo`/`LessonRepo`, resolvers; GraphiQL on.
+- `infra/migrations/learn/V1` (`courses`, `lessons`), Compose `migrate-learn` job + `learn` service on 9002.
+
+**Done when:** `createCourse` + `createLesson` mutations and `courses { lessons { title } }` query work through the gateway with a valid token. → continues in [Plan 01, Phase L0](../plan%2001/06-roadmap.md).
 
 ## Phase 4 — Community & Challenge skeletons
 
@@ -78,11 +80,14 @@ gantt
 
 **Done when:** CI is green on `main` and the first `docs/timeline/<date>` snapshot exists.
 
-## After v1 (candidate order)
+## After Plan 00
 
-1. Identity error mapping + DTO validation + admin promotion endpoint.
-2. Portal v2: announcements & events tables/API (retire frontend mocks), `GET /setting`, `GET /users/{id}`.
-3. Learn v2: `ADMIN`-gated mutations, progress tracking, tests.
-4. Community v2: categories/threads/posts.
-5. Challenge v2: contests + submissions; judge as an isolated worker.
-6. Platform: refresh tokens, gateway 401s, membership caching, rate limiting, frontend in Compose, JDK alignment to 21, config validation fail-fast.
+Domain work moves to numbered plans; only **platform** items stay here as candidates:
+
+| Where | What |
+| :-- | :-- |
+| [Plan 01 — Learn](../plan%2001/README.md) | authorization, modules, roadmaps, progress, quizzes, projects, labs + Go lab-runner |
+| Plan 02 — Challenge | contests, submissions, Python judge, leaderboards (reuses the lab-runner for CTF instances) |
+| Plan 03 — Community | categories/threads/posts, groups, messaging |
+| Plan 04 — Portal v2 | announcements & events tables/API (retire frontend mocks), `GET /setting`, `GET /users/{id}`, admin user management |
+| **Plan 00 follow-ups (platform)** | identity DTO validation + admin promotion endpoint (gaps A5); CI folder/JDK (A10); Makefile/start-app schema list (A11); refresh tokens; gateway 401 for expired tokens on non-identity services; membership caching; rate limiting; JDK alignment to 21; config fail-fast validation; batch user lookup `GET /private/api/users?ids=` in identity (needed by every domain to show author names) |

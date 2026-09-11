@@ -73,6 +73,9 @@ CREATE TABLE user_setting (
 ```
 
 ### learn
+
+Baseline only (the Learn slot). `V2+` — modules, roadmaps, progress, quizzes, projects, labs — are specified in [Plan 01 · 03-data-and-migrations.md](../../plan%2001/03-data-and-migrations.md).
+
 ```sql
 -- V1__learn_course_relation.sql
 CREATE SCHEMA IF NOT EXISTS learn;  SET search_path TO learn;

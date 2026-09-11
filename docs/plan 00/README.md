@@ -1,15 +1,31 @@
-# docs/plan
+# Plan 00 — Platform Foundation
 
-The design plan for the Cyber Club Portal, written **before implementation** in the voice of "this is what we will build and how". It is layered: each level narrows the previous one.
+**Scope:** everything a domain service needs to exist — gateway routing, identity (users, memberships, JWT, internal APIs), the security/header contract, the service template, schema-per-service data, local dev/Compose, frontend shell with cookie auth, tests/CI. Portal is the reference implementation; Learn, Community and Challenge appear here only as **slots in the topology** (schema, port, routing, skeleton). Their domains are planned in later numbered plans.
 
-> Note: this plan set was reconstructed on 2026-09-09 to capture the decisions that produced the code as it stands. The as-built state is recorded separately in [../timeline/2026-09-09/](../timeline/2026-09-09/README.md); deviations between plan and reality are listed in that snapshot's `gaps.md`.
+**Status:** implemented (Phases 0–6). As-built state: [../timeline/2026-09-09/](../timeline/2026-09-09/README.md); defects: [`gaps.md`](../timeline/2026-09-09/gaps.md).
+
+Written **before implementation** in the voice of "this is what we will build and how", layered so each level narrows the previous one.
+
+> Note: this plan set was reconstructed on 2026-09-09 to capture the decisions that produced the code as it stands.
+
+## Plan series
+
+| Plan | Focus | Status |
+| :-- | :-- | :-- |
+| **00 — Platform Foundation** (this folder) | gateway, identity, auth, template, infra, frontend shell | done |
+| [01 — Learn](../plan%2001/README.md) | courses, modules, lessons, roadmaps, quizzes, projects, labs + Go lab-runner | in progress |
+| 02 — Challenge | contests, CTFs, judge (Python), leaderboards | not started |
+| 03 — Community | forums, groups, messaging | not started |
+| 04 — Portal v2 | announcements, events, admin | not started |
+
+Each plan is a sequence of **phases**; every phase ends in something concrete, demonstrable and finished ("done when").
 
 This folder is intentionally separate from `docs/timeline/`:
 
 | Folder | Answers | Tense |
 | :-- | :-- | :-- |
 | `docs/timeline/<YYYY-MM-DD>/` | "What does the app do **right now**?" | present, descriptive |
-| `docs/plan/` | "What do we intend to build and how?" | future, prescriptive |
+| `docs/plan NN/` | "What do we intend to build and how?" | future, prescriptive |
 
 ## Layers
 
@@ -28,9 +44,9 @@ This folder is intentionally separate from `docs/timeline/`:
 | [gateway.md](02-domains/gateway.md) | Edge routing, JWT verification, header enrichment |
 | [identity.md](02-domains/identity.md) | Users, credentials, memberships, tokens, internal lookup API |
 | [portal.md](02-domains/portal.md) | Home/admin backbone, member directory, settings |
-| [learn.md](02-domains/learn.md) | Courses and lessons (GraphQL) |
-| [community.md](02-domains/community.md) | Forums, groups, messaging |
-| [challenge.md](02-domains/challenge.md) | Contests, CTFs, judge, leaderboards |
+| [learn.md](02-domains/learn.md) | Learn **slot** only (schema, port, routing, baseline); domain → [Plan 01](../plan%2001/README.md) |
+| [community.md](02-domains/community.md) | Community slot (skeleton); domain → Plan 03 |
+| [challenge.md](02-domains/challenge.md) | Challenge slot (skeleton); domain → Plan 02 |
 | [frontend.md](02-domains/frontend.md) | Next.js app, subdomain UX, BFF route handlers |
 
 ### 03-implementation
@@ -53,7 +69,8 @@ This folder is intentionally separate from `docs/timeline/`:
 
 ## Conventions for future plans
 
-- New initiatives go in a new file under the matching level (e.g. a `## v2` section in `02-domains/community.md`, or a new `03-implementation/refresh-tokens.md`).
+- One numbered folder per domain/initiative (`docs/plan NN/`), each with its own `README.md`, layered docs and a phased roadmap.
+- Cross-cutting platform changes (auth, gateway, template) are still added here as new files under the matching level (e.g. `03-implementation/refresh-tokens.md`).
 - Start each with **Goal**, **Current state** (link to the latest timeline snapshot), **Proposed change**, **Done when**.
 - When implemented, do not delete — add `Status: done (see docs/timeline/<date>)` at the top.
 - Known gaps to draw from: the latest snapshot's `gaps.md` and the repo-root `task.txt`.
