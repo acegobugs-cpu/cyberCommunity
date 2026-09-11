@@ -14,9 +14,9 @@
 | 1 — Domain model | [01-domain-model.md](01-domain-model.md) | Entities, relationships, states, glossary |
 | 2 — API | [02-api.md](02-api.md) | GraphQL schema, internal REST, authorization per operation, error mapping, why GraphQL |
 | 3 — Data | [03-data-and-migrations.md](03-data-and-migrations.md) | `V2 … V7` DDL, migration of existing rows, indexes |
-| 3 — Labs & runner | [04-labs-and-runner.md](04-labs-and-runner.md) | Why Go, the lab-runner contract, isolation, TTL, flags, how Challenge reuses it |
-| 3 — Frontend | [05-frontend.md](05-frontend.md) | Pages, BFF route, markdown rendering, admin authoring UI |
-| 4 — Roadmap | [06-roadmap.md](06-roadmap.md) | Phases L0–L7, each with "done when" |
+| 4 — Labs & runner | [04-labs-and-runner.md](04-labs-and-runner.md) | Why Go, the lab-runner contract, isolation, TTL, flags, how Challenge reuses it |
+| 5 — Frontend | [05-frontend.md](05-frontend.md) | Pages, BFF route, markdown rendering, admin authoring UI |
+| 6 — Roadmap | [06-roadmap.md](06-roadmap.md) | Phases L0–L7, each with "done when" |
 
 ## Language decisions in this plan
 
