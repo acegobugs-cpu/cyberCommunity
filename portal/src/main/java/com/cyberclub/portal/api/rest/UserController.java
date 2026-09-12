@@ -1,4 +1,4 @@
-package com.cyberclub.portal.restcontrollers;
+package com.cyberclub.portal.api.rest;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;

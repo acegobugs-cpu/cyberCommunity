@@ -10,11 +10,11 @@ import com.cyberclub.learn.dtos.Course;
 import com.cyberclub.learn.repositories.CourseRepo;
 
 @Service
-public class CourseSerivce {
+public class CourseService {
     
     private final CourseRepo courseRepo;
 
-    public CourseSerivce(CourseRepo courseRepo){
+    public CourseService(CourseRepo courseRepo){
         this.courseRepo = courseRepo;
     }
 

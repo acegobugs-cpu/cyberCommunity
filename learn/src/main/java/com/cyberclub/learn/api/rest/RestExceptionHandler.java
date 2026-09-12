@@ -1,4 +1,4 @@
-package com.cyberclub.portal.restcontrollers;
+package com.cyberclub.learn.api.rest;
 
 import java.time.Instant;
 
@@ -8,12 +8,12 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import com.cyberclub.portal.dtos.ErrorResponse;
-import com.cyberclub.portal.exceptions.BadRequestException;
-import com.cyberclub.portal.exceptions.ForbiddenException;
-import com.cyberclub.portal.exceptions.NotFoundException;
-import com.cyberclub.portal.exceptions.UnauthorizedException;
-import com.cyberclub.portal.context.TraceContext;
+import com.cyberclub.learn.dtos.ErrorResponse;
+import com.cyberclub.learn.exceptions.BadRequestException;
+import com.cyberclub.learn.exceptions.ForbiddenException;
+import com.cyberclub.learn.exceptions.NotFoundException;
+import com.cyberclub.learn.exceptions.UnauthorizedException;
+import com.cyberclub.learn.context.TraceContext;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -21,9 +21,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @RestControllerAdvice
-public class ControllerExceptionHandler {
+public class RestExceptionHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(ControllerExceptionHandler.class);
+    private static final Logger log = LoggerFactory.getLogger(RestExceptionHandler.class);
 
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)

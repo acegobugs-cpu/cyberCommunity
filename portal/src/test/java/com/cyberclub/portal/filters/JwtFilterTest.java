@@ -1,6 +1,7 @@
 package com.cyberclub.portal.filters;
 
 import java.io.IOException;
+import java.util.UUID;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -21,7 +22,7 @@ public class JwtFilterTest extends OncePerRequestFilter {
     ) throws ServletException, IOException {
 
         // Simulate authenticated user
-        UserContext.set("11111111-1111-1111-1111-111111111111");
+        UserContext.set(UUID.fromString("11111111-1111-1111-1111-111111111111"));
 
         try {
             filterChain.doFilter(request, response);

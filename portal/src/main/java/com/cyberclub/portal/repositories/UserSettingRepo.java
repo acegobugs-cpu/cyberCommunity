@@ -14,7 +14,7 @@ public class UserSettingRepo{
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public void setSetting(String userId, String theme, boolean notifications, String language){
+    public void setSetting(UUID userId, String theme, boolean notifications, String language){
         var sql = """
                 INSERT INTO user_setting (user_id, theme, notifications_enabled, language_code) 
                 VALUES (?, ?, ?, ?)
@@ -26,6 +26,6 @@ public class UserSettingRepo{
                     updated_at = NOW()
                 """;
 
-        jdbcTemplate.update(sql, UUID.fromString(userId), theme, notifications, language);
+        jdbcTemplate.update(sql, userId, theme, notifications, language);
     }
 }

@@ -1,11 +1,12 @@
-package com.cyberclub.portal.services;
+package com.cyberclub.learn.services;
+
 
 import org.springframework.stereotype.Service;
 
-import com.cyberclub.portal.security.AuthPolicy;
-import com.cyberclub.portal.security.ClientAuth;
-import com.cyberclub.portal.context.*;
-import com.cyberclub.portal.dtos.AuthResult;
+import com.cyberclub.learn.security.AuthPolicy;
+import com.cyberclub.learn.security.ClientAuth;
+import com.cyberclub.learn.context.*;
+import com.cyberclub.learn.dtos.AuthResult;
 
 @Service
 public class AuthService {
@@ -17,7 +18,7 @@ public class AuthService {
     }
 
     public AuthResult require(AuthPolicy policy){
-        AuthResult user = clientAuth.checkMembership(UserContext.get());
+        AuthResult user = clientAuth.checkMembership(UserContext.getUserId());
         policy.check(user);
         return user;
     }

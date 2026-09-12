@@ -26,7 +26,7 @@ public class JwtFilter extends OncePerRequestFilter {
         FilterChain filterChain
     )throws ServletException, IOException{
         try{
-            UUID userId = extractToken(request);
+            UUID userId = extractToken(request, response);
             if(userId != null){
                 UserContext.set(userId);
             }
@@ -36,18 +36,26 @@ public class JwtFilter extends OncePerRequestFilter {
         }
     }
 
-    private UUID extractToken(HttpServletRequest request) {
+    private UUID extractToken(HttpServletRequest request, HttpServletResponse response) {
         String userId = request.getHeader("X-User-Id");
         if (userId == null || userId.isBlank()) {
             log.error("userId not found.. userId = {}", userId);
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "userId missing");
+            try {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "userId missing");
+            } catch (IOException e) {
+                log.error("Error sending unauthorized response", e);
+            }
             return null;
         }
         try {
             return UUID.fromString(userId);
         } catch (IllegalArgumentException ex) {
             log.error("userId not valid UUID.. userId = {}", userId);
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "userId Invalid UUID");
+            try {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "userId Invalid UUID");
+            } catch (IOException e) {
+                log.error("Error sending unauthorized response", e);
+            }
             return null;
         }
     }

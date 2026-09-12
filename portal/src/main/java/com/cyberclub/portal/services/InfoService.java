@@ -21,9 +21,9 @@ public class InfoService{
         AuthResult user = auth.require(Policies.MEMBER.or(Policies.ADMIN));
 
         return Map.of(
-            "userId", UserContext.get(),
+            "userId", UserContext.get().toString(),
             "serviceName", "portal",
-            "role", user.role(),
+            "role", user.role().toString(),
             "message", "this user is authorized"
         );
     }
