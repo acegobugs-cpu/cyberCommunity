@@ -10,6 +10,8 @@ import { mockDb } from "@/lib/mock-data";
 import { getSessionToken } from "@/lib/server/session";
 import { getEnrichedMembers } from "@/lib/data/members";
 import { getPortalInfo } from "@/lib/data/portal";
+import { headers } from "next/headers";
+import { areaUrl } from "@/lib/subdomains";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +32,8 @@ async function fetchData() {
 
 export default async function HomePage() {
   const { members, announcements, events, portalInfo } = await fetchData();
+  const host = (await headers()).get("host");
+  const learnHref = areaUrl("learn", host);
 
   const sortedMembers = [...members].sort((a, b) => a.rank - b.rank);
   const topMembers = sortedMembers.slice(0, 5);
@@ -48,6 +52,7 @@ export default async function HomePage() {
       <HeroSection
         memberCount={members.length}
         portalInfo={portalInfo}
+        learnHref={learnHref}
       />
       <StatsBar
         memberCount={members.length}
@@ -228,9 +233,11 @@ export default async function HomePage() {
 function HeroSection({
   memberCount,
   portalInfo,
+  learnHref,
 }: {
   memberCount: number;
   portalInfo: PortalInfo | null;
+  learnHref: string;
 }) {
   return (
     <section className="relative overflow-hidden border-b border-htb-border htb-grid-bg">
@@ -267,9 +274,9 @@ function HeroSection({
               <Link href="/signin" className="htb-button htb-button-secondary">
                 Sign in
               </Link>
-              <Link href="/learn" className="htb-button htb-button-ghost">
+              <a href={learnHref} className="htb-button htb-button-ghost">
                 Explore platform
-              </Link>
+              </a>
             </div>
 
             <div className="flex items-center gap-6 pt-4 htb-mono text-xs text-htb-text-dim">

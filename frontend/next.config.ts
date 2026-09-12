@@ -20,7 +20,8 @@ const nextConfig: NextConfig = {
     "community.localhost",
     "learn.localhost",
     "challenges.localhost",
-    "cyberclubportal.com",
+    ROOT_DOMAIN,
+    `*.${ROOT_DOMAIN}`,
   ],
 };
 

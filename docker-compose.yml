@@ -11,6 +11,7 @@ services:
   #   environment:
   #     - NEXT_PUBLIC_GATEWAY_URL=http://gateway:8080
   #     - NEXT_PUBLIC_ROOT_DOMAIN=${NEXT_PUBLIC_ROOT_DOMAIN:-cyberclubportal.com}
+  #     - SESSION_COOKIE_DOMAIN=${SESSION_COOKIE_DOMAIN:-}
   #     - WATCHPACK_POLLING=true
   #   volumes:
   #     - ./frontend:/app

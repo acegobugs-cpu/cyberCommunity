@@ -9,15 +9,21 @@ import type { NavItem } from "@/components/nav-item";
 export function SiteHeader({
   subdomain,
   nav,
+  portalBase,
 }: {
   subdomain: string | null;
   nav: NavItem[];
+  /** Absolute origin of the portal host (no trailing slash); auth/dashboard links live there. */
+  portalBase: string;
 }) {
   const pathname = usePathname();
   const { user, isAdmin, signout, loading } = useAuth();
   const [open, setOpen] = useState(false);
 
   const isPortal = !subdomain || subdomain === "portal" || subdomain === "www";
+  // On the portal host use relative paths (client-side navigation); on an area
+  // host these pages live on a different origin, so use absolute URLs.
+  const p = (path: string) => (isPortal ? path : `${portalBase}${path}`);
   const portalNav = [
     { key: "home", label: "Home", href: "/" },
     { key: "members", label: "Members", href: "/members" },
@@ -30,7 +36,7 @@ export function SiteHeader({
   return (
     <header className="sticky top-0 z-50 border-b border-htb-border bg-htb-bg/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center gap-6 px-6 py-3">
-        <Link href="/" className="flex items-center gap-2.5 group">
+        <Link href={p("/")} className="flex items-center gap-2.5 group">
           <LogoMark className="h-7 w-7 text-htb-green transition-transform group-hover:scale-110" />
           <div className="flex flex-col leading-none">
             <span className="htb-heading text-sm tracking-wider text-htb-text">
@@ -89,7 +95,7 @@ export function SiteHeader({
           {user ? (
             <>
               <Link
-                href="/dashboard"
+                href={p("/dashboard")}
                 className="htb-button htb-button-ghost hidden sm:inline-flex"
               >
                 {user.username}
@@ -107,12 +113,12 @@ export function SiteHeader({
           ) : (
             <>
               <Link
-                href="/signin"
+                href={p("/signin")}
                 className="htb-button htb-button-ghost hidden sm:inline-flex"
               >
                 Sign in
               </Link>
-              <Link href="/signup" className="htb-button htb-button-primary">
+              <Link href={p("/signup")} className="htb-button htb-button-primary">
                 Join
               </Link>
             </>

@@ -135,6 +135,9 @@ gateway/ identity/ portal/ learn/ community/ challenge/   # thin bootable module
    LOCAL_DB_PORT=5433
    JWT_SECRET=<at least 32 random characters>
    INTERNAL_GATEWAY_SECRET=<random string>
+   # optional, for cross-subdomain login in dev (see step 4)
+   NEXT_PUBLIC_ROOT_DOMAIN=cyberclub.test
+   SESSION_COOKIE_DOMAIN=.cyberclub.test
    ```
 3. **Run the backend:**
    ```bash
@@ -145,6 +148,12 @@ gateway/ identity/ portal/ learn/ community/ challenge/   # thin bootable module
    ```bash
    cd frontend && npm install && npm run dev     # http://localhost:3000
    ```
+   Each area is its own **host**, not a path: `learn.localhost:3000`, `community.localhost:3000`, `challenges.localhost:3000` (browsers resolve `*.localhost` to 127.0.0.1). `/learn` on the portal host redirects to the learn host.
+   To share the login cookie across areas locally you need a real-looking domain (browsers refuse `Domain=localhost`): add to `/etc/hosts`
+   ```
+   127.0.0.1 cyberclub.test portal.cyberclub.test learn.cyberclub.test community.cyberclub.test challenges.cyberclub.test
+   ```
+   and set `NEXT_PUBLIC_ROOT_DOMAIN=cyberclub.test` and `SESSION_COOKIE_DOMAIN=.cyberclub.test` in `.env` (or `frontend/.env.local`), then open `http://cyberclub.test:3000`.
 5. **Smoke test:** open `http://localhost:3000/signup`, register, land on `/dashboard` with role `USER`.
 
 ### Ports

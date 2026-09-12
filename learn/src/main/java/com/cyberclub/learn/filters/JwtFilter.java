@@ -5,12 +5,13 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.cyberclub.learn.context.UserContext;
-
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+
+import com.cyberclub.learn.context.UserContext;
 
 @Component
 public class JwtFilter extends OncePerRequestFilter {

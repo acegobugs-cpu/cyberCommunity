@@ -11,6 +11,14 @@ import type { User } from "@/lib/types";
  */
 export const SESSION_COOKIE = "ccp_session";
 
+/**
+ * Cookie scope. Areas live on subdomains (learn.<root>, …) and must share the
+ * login, so in production this is `.cyberclubportal.com`. Browsers reject a
+ * Domain attribute for `localhost`, so it stays unset (host-only) unless the
+ * dev uses a real-looking host (see local-dev docs: `cyberclub.test`).
+ */
+const COOKIE_DOMAIN = process.env.SESSION_COOKIE_DOMAIN || undefined;
+
 interface JwtPayload {
   sub?: string;
   email?: string;
@@ -73,6 +81,7 @@ export function setSessionCookie(
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
+    domain: COOKIE_DOMAIN,
     maxAge: Math.max(0, Math.floor(expiresInSeconds)),
   });
 }
@@ -85,6 +94,7 @@ export function clearSessionCookie(res: NextResponse): void {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
+    domain: COOKIE_DOMAIN,
     maxAge: 0,
   });
 }

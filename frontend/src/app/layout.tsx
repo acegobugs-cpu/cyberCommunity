@@ -3,7 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { extractSubdomain, SUBDOMAIN_PATHS, SUBDOMAINS } from "@/lib/subdomains";
+import { extractSubdomain, areaUrl, SUBDOMAINS } from "@/lib/subdomains";
 import { headers } from "next/headers";
 
 const geistSans = Geist({
@@ -16,14 +16,17 @@ const geistMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
-// Relative paths work on every host (localhost, *.localhost, production
-// subdomains) because each area is also mounted at a path.
-const SUBDOMAIN_NAV = [
-  { key: SUBDOMAINS.PORTAL, label: "Portal", href: "/" },
-  { key: SUBDOMAINS.COMMUNITY, label: "Community", href: SUBDOMAIN_PATHS[SUBDOMAINS.COMMUNITY] },
-  { key: SUBDOMAINS.LEARN, label: "Learn", href: SUBDOMAIN_PATHS[SUBDOMAINS.LEARN] },
-  { key: SUBDOMAINS.CHALLENGES, label: "Challenges", href: SUBDOMAIN_PATHS[SUBDOMAINS.CHALLENGES] },
-];
+// Each area is a separate host (learn.<root>, …). URLs are derived from the
+// current request host so they work on localhost:3000, *.localhost:3000 and
+// production alike.
+function buildSubdomainNav(host: string | null) {
+  return [
+    { key: SUBDOMAINS.PORTAL, label: "Portal", href: areaUrl(SUBDOMAINS.PORTAL, host) },
+    { key: SUBDOMAINS.COMMUNITY, label: "Community", href: areaUrl(SUBDOMAINS.COMMUNITY, host) },
+    { key: SUBDOMAINS.LEARN, label: "Learn", href: areaUrl(SUBDOMAINS.LEARN, host) },
+    { key: SUBDOMAINS.CHALLENGES, label: "Challenges", href: areaUrl(SUBDOMAINS.CHALLENGES, host) },
+  ];
+}
 
 export const metadata = {
   title: "Cyber Club Portal",
@@ -39,6 +42,8 @@ export default async function RootLayout({
   const headerList = await headers();
   const host = headerList.get("host") ?? null;
   const subdomain = extractSubdomain(host);
+  const nav = buildSubdomainNav(host);
+  const portalBase = areaUrl(SUBDOMAINS.PORTAL, host, "");
 
   return (
     <html
@@ -50,10 +55,11 @@ export default async function RootLayout({
         <AuthProvider>
           <SiteHeader
             subdomain={subdomain}
-            nav={SUBDOMAIN_NAV}
+            nav={nav}
+            portalBase={portalBase}
           />
           <div className="flex-1 flex flex-col">{children}</div>
-          <SiteFooter nav={SUBDOMAIN_NAV} />
+          <SiteFooter nav={nav} />
         </AuthProvider>
       </body>
     </html>

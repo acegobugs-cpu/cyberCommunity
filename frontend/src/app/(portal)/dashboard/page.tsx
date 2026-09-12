@@ -8,9 +8,11 @@ import { MemberAvatar } from "@/components/member-avatar";
 import { ActivityFeed } from "@/components/activity-feed";
 import { useRouter } from "next/navigation";
 import type { EnrichedMember } from "@/lib/enriched-types";
+import { useAreaUrl } from "@/lib/use-area-url";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const areaHref = useAreaUrl();
   const { user, portalRole, loading: authLoading } = useAuth();
   const [member, setMember] = useState<EnrichedMember | null>(null);
   const [loading, setLoading] = useState(true);
@@ -121,13 +123,13 @@ export default function DashboardPage() {
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
               <ActionCard
-                href="/learn"
+                href={areaHref("learn")}
                 title="Continue learning"
                 desc="Resume 'Practical Binary Exploitation' · module 4 of 12"
                 tag="learn"
               />
               <ActionCard
-                href="/challenges"
+                href={areaHref("challenges")}
                 title="Next CTF"
                 desc="Web Exploitation Sprint starts in 3h 24m"
                 tag="ctf"

@@ -25,7 +25,7 @@ docs/timeline/<date>/ as-built snapshots + gaps.md        ← source of truth fo
 | portal | ✅ `GET /portal/info` (MEMBER or ADMIN), `GET /users` (MEMBER = role `USER` only), `POST /setting` (ADMIN). Reference service for filters/policies/error handler |
 | learn | ✅ GraphQL `courses`, `course`, `createCourse`, `createLesson`; **no authorization**; no tests |
 | community / challenge | 🚧 skeletons: datasource + `X-User-Id` filter only; no GatewayTrustFilter, no endpoints (challenge has `GET /` → "HOME"). Challenge already has a correct identity client (`ClientIdentity` + outbound `InternalAuthFilter`) ready for its first authorised endpoint |
-| frontend | ✅ signup/signin/dashboard/members/settings wired via BFF; **httpOnly cookie session** (`ccp_session`), JWT never reaches the browser. Announcements/events/community/learn/challenges = static or mock |
+| frontend | ✅ **host-per-area routing**: `learn.<root>`→`src/app/sites/learn`, `/learn` on portal host redirects (`src/proxy.ts`, `lib/subdomains.ts areaUrl()`); dev hosts `*.localhost:3000` or `*.cyberclub.test` via /etc/hosts + `SESSION_COOKIE_DOMAIN`. signup/signin/dashboard/members/settings wired via BFF; **httpOnly cookie session** (`ccp_session`), JWT never reaches the browser. Announcements/events/community/learn/challenges = static or mock |
 | infra | Compose runs services from source (`./mvnw spring-boot:run`) + Flyway jobs for identity/portal/learn + frontend; CI file is at `.github/workflow/` (singular → not discovered) |
 
 Known defects: `docs/timeline/2026-09-09/gaps.md` (A1–A4, A6–A9, A12 fixed; A5, A10, A11 + sections B/C open). Open TODOs: `task.txt`.
