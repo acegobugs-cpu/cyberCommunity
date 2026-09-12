@@ -26,19 +26,19 @@ public class CourseQueryResolver {
 
     @QueryMapping
     public List<Course> courses(){
-        auth.require(Policies.MEMBER.or(Policies.AUTHOR).or(Policies.ADMIN));
+        auth.require(Policies.LEARNER);
         return courseSerivce.getCourses();
     }
 
     @QueryMapping
     public Course course(@Argument UUID id){
-        auth.require(Policies.MEMBER.or(Policies.AUTHOR).or(Policies.ADMIN));
+        auth.require(Policies.LEARNER);
         return courseSerivce.getCourse(id);
     }
 
     @MutationMapping
     public Course createCourse(@Argument String title, @Argument String description){
-        auth.require(Policies.AUTHOR.or(Policies.ADMIN));
+        auth.require(Policies.CONTENT_AUTHOR);
         return courseSerivce.createCourse(title, description);
     }
     

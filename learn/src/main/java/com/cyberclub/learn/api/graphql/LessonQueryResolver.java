@@ -27,13 +27,13 @@ public class LessonQueryResolver {
 
     @SchemaMapping(typeName = "Course", field = "lessons")
     public List<Lesson> lessons(Course course){
-        auth.require(Policies.MEMBER.or(Policies.AUTHOR).or(Policies.ADMIN));
+        auth.require(Policies.LEARNER);
         return lessonService.getLessonsForCourses(course.id());
     }
 
     @MutationMapping
     public Lesson createLesson(@Argument UUID courseId, @Argument String title, @Argument String content, @Argument int orderIndex){
-        auth.require(Policies.AUTHOR.or(Policies.ADMIN));
+        auth.require(Policies.CONTENT_AUTHOR);
         return lessonService.createLesson(courseId, title, content, orderIndex);
     }
 }

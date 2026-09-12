@@ -27,6 +27,8 @@ L3 and L4 are independent after L2; L6 can start once L3 is done (labs are lesso
 
 ## L0 — Harden the baseline
 
+**Status: done (2026-09-12).** 9 tests green (`LearnFilterChainTest` 4, `LearnGraphQlAuthTest` 5). Deviations from the text below: `Policies.MEMBER` matches identity's real role `USER` (not "MEMBER"); composite policies are named `LEARNER` = `MEMBER.or(AUTHOR).or(ADMIN)` and `CONTENT_AUTHOR` = `AUTHOR.or(ADMIN)`; `ClientAuth` queries `serviceName=learn`; the GraphQL error resolver (`QueryExceptionHandler`) reuses the request's `X-Request-Id` via `TraceContext`; identity is faked with a MockWebServer dispatcher (`support/FakeIdentity`) rather than `@MockitoBean`, so the real `WebClient` + `InternalAuthFilter` path is exercised.
+
 *Make the Plan 00 slot a real service before adding anything to it.*
 
 - Copy Portal's `security/` (`AuthPolicy`, `Policies`, `ClientAuth`, `AuthResult`) and `AuthService` into `learn`; add `Policies.LEARNER = MEMBER.or(ADMIN)`, `Policies.AUTHOR = ADMIN`.

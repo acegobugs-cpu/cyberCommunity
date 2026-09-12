@@ -27,7 +27,7 @@ public class ClientAuth {
                 .uri( uriBuilder -> uriBuilder
                     .path("/private/api/member/check")
                     .queryParam("userId", id)
-                    .queryParam("serviceName", "portal")
+                    .queryParam("serviceName", "learn")
                     .build()
                 )
                 .exchangeToMono(res -> {
