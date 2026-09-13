@@ -1,125 +1,111 @@
-enum CourseStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
-}
+"""
+Learn — Plan 01, Phase L1 content model.
+Enum vocabularies match the CHECK constraints in infra/migrations/learn/V1.
+Timestamps are ISO-8601 strings.
+"""
 
-enum Difficulty {
-  EASY
-  MEDIUM
-  HARD
-}
+enum CourseStatus { DRAFT PUBLISHED ARCHIVED }
+enum Difficulty { BEGINNER INTERMEDIATE ADVANCED }
+enum LessonType { READING VIDEO QUIZ LAB PROJECT }
 
-enum LessonType {
-  READING
-  VIDEO
-  QUIZ
-  PROJECT
-  LAB
-}
+# ---------- content ----------
 
 type Course {
   id: ID!
-
-  title: String!
   slug: String!
+  title: String!
   description: String
-  tag: [String!]
-
   difficulty: Difficulty!
+  tags: [String!]!
   status: CourseStatus!
-
+  "Sum of lesson estimates; maintained by the server."
   estimatedMinutes: Int!
-
-  createdBy: ID!
-
+  createdBy: ID
   createdAt: String!
-  updatedAt: String
+  updatedAt: String!
   archivedAt: String
-  
   modules: [Module!]!
 }
 
 type Module {
   id: ID!
   courseId: ID!
-
   title: String!
   descriptionMd: String
-
   position: Int!
-
   createdAt: String!
-  updatedAt: String
-
+  updatedAt: String!
   lessons: [Lesson!]!
 }
 
 type Lesson {
   id: ID!
   moduleId: ID!
-
   title: String!
   type: LessonType!
   contentMd: String
   videoUrl: String
-
   position: Int!
   estimatedMinutes: Int!
-  
   createdAt: String!
-  updatedAt: String
+  updatedAt: String!
 }
+
+# ---------- queries (LEARNER; unpublished content visible to CONTENT_AUTHOR only) ----------
 
 type Query {
-  courses: [Course!]!
-  course(id: ID): Course
-  courseBySlug(slug: String!): Course
+  courses(difficulty: Difficulty, tag: String, search: String): [Course!]!
+  course(slug: String!): Course
+  "Author editor entry point; also works for learners on published courses."
+  courseById(id: ID!): Course
+  lesson(id: ID!): Lesson
 }
 
-# Input types for clean Upsert mutations
-input UpsertCourseInput {
+# ---------- author mutations (CONTENT_AUTHOR) ----------
+
+"id absent → insert (slug generated from title when omitted); id present → update."
+input CourseInput {
   id: ID
   title: String!
-  slug: String!
+  slug: String
   description: String
-  difficulty: Difficulty!
-  tag: [String!]
-  estimatedMinutes: Int!
+  difficulty: Difficulty = BEGINNER
+  tags: [String!] = []
 }
 
-input UpsertModuleInput {
+"position omitted on insert → appended at the end."
+input ModuleInput {
   id: ID
   courseId: ID!
   title: String!
   descriptionMd: String
-  position: Int!
+  position: Int
 }
 
-input UpsertLessonInput {
+input LessonInput {
   id: ID
   moduleId: ID!
   title: String!
-  type: LessonType!
+  type: LessonType = READING
   contentMd: String
   videoUrl: String
-  position: Int!
-  estimatedMinutes: Int!
-}
-
-input ReorderInput {
-  id: ID!
-  position: Int!
+  estimatedMinutes: Int = 0
+  position: Int
 }
 
 type Mutation {
-  # L1 Author Mutations
-  upsertCourse(input: UpsertCourseInput!): Course!
-  upsertModule(input: UpsertModuleInput!): Module!
-  upsertLesson(input: UpsertLessonInput!): Lesson!
-  
-  publishCourse(id: ID!): Course!
-  
-  reorderModules(courseId: ID!, items: [ReorderInput!]!): Boolean!
-  reorderLessons(moduleId: ID!, items: [ReorderInput!]!): Boolean!
+  upsertCourse(input: CourseInput!): Course!
+  upsertModule(input: ModuleInput!): Module!
+  upsertLesson(input: LessonInput!): Lesson!
+
+  "orderedIds must be exactly the set of the parent's children; positions become 1..n."
+  reorderModules(courseId: ID!, orderedIds: [ID!]!): Course!
+  reorderLessons(moduleId: ID!, orderedIds: [ID!]!): Module!
+
+  "published=false returns the course to DRAFT."
+  publishCourse(id: ID!, published: Boolean = true): Course!
+  archiveCourse(id: ID!): Course!
+
+  deleteModule(id: ID!): Boolean!
+  deleteLesson(id: ID!): Boolean!
 }

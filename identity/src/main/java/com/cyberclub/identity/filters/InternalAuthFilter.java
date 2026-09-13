@@ -5,8 +5,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Objects;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -18,7 +16,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class InternalAuthFilter extends OncePerRequestFilter {
-    private final Logger log = LoggerFactory.getLogger(InternalAuthFilter.class);
     private final String secret;
 
     

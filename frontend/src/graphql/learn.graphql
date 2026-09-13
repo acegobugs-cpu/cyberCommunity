@@ -1,0 +1,125 @@
+# ---------- fragments ----------
+
+fragment CourseCard on Course {
+  id
+  slug
+  title
+  description
+  difficulty
+  tags
+  status
+  estimatedMinutes
+  updatedAt
+}
+
+fragment LessonSummary on Lesson {
+  id
+  moduleId
+  title
+  type
+  position
+  estimatedMinutes
+}
+
+fragment CourseTree on Course {
+  ...CourseCard
+  createdAt
+  modules {
+    id
+    courseId
+    title
+    descriptionMd
+    position
+    lessons {
+      ...LessonSummary
+    }
+  }
+}
+
+# ---------- learner queries ----------
+
+query Catalogue($difficulty: Difficulty, $tag: String, $search: String) {
+  courses(difficulty: $difficulty, tag: $tag, search: $search) {
+    ...CourseCard
+  }
+}
+
+query CourseBySlug($slug: String!) {
+  course(slug: $slug) {
+    ...CourseTree
+  }
+}
+
+query CourseById($id: ID!) {
+  courseById(id: $id) {
+    ...CourseTree
+  }
+}
+
+query LessonById($id: ID!) {
+  lesson(id: $id) {
+    ...LessonSummary
+    contentMd
+    videoUrl
+  }
+}
+
+# ---------- author mutations ----------
+
+mutation UpsertCourse($input: CourseInput!) {
+  upsertCourse(input: $input) {
+    ...CourseCard
+  }
+}
+
+mutation UpsertModule($input: ModuleInput!) {
+  upsertModule(input: $input) {
+    id
+    courseId
+    title
+    descriptionMd
+    position
+  }
+}
+
+mutation UpsertLesson($input: LessonInput!) {
+  upsertLesson(input: $input) {
+    ...LessonSummary
+    contentMd
+    videoUrl
+  }
+}
+
+mutation ReorderModules($courseId: ID!, $orderedIds: [ID!]!) {
+  reorderModules(courseId: $courseId, orderedIds: $orderedIds) {
+    id
+  }
+}
+
+mutation ReorderLessons($moduleId: ID!, $orderedIds: [ID!]!) {
+  reorderLessons(moduleId: $moduleId, orderedIds: $orderedIds) {
+    id
+  }
+}
+
+mutation PublishCourse($id: ID!, $published: Boolean) {
+  publishCourse(id: $id, published: $published) {
+    id
+    status
+  }
+}
+
+mutation ArchiveCourse($id: ID!) {
+  archiveCourse(id: $id) {
+    id
+    status
+  }
+}
+
+mutation DeleteModule($id: ID!) {
+  deleteModule(id: $id)
+}
+
+mutation DeleteLesson($id: ID!) {
+  deleteLesson(id: $id)
+}

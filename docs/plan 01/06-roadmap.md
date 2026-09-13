@@ -42,6 +42,17 @@ L3 and L4 are independent after L2; L6 can start once L3 is done (labs are lesso
 
 ## L1 — Content model v2, authoring, reader
 
+**Status: done (2026-09-13).** 15 tests green (`LearnContentTest` 6, `LearnGraphQlAuthTest` 5, `LearnFilterChainTest` 4); `tsc`, `eslint`, `next build` clean. Deviations from the text below and from `02-api.md`/`03-data-and-migrations.md`:
+- The user reset Flyway, so the whole content model ships as a rewritten **V1** (no V2 data move). Enums are `TEXT + CHECK`; position uniqueness constraints are `DEFERRABLE INITIALLY DEFERRED` so reorders can swap inside one transaction.
+- `published BOOLEAN` became `status DRAFT|PUBLISHED|ARCHIVED` (+ `archived_at`); `publish(kind, id, published)` became `publishCourse(id, published)` + `archiveCourse(id)`; `reorder(parentId, kind, orderedIds)` became `reorderModules(courseId, orderedIds)` / `reorderLessons(moduleId, orderedIds)`; `deleteModule`/`deleteLesson` added.
+- `courses.estimated_minutes` is a server-maintained cache (sum of lessons), not an input.
+- Publish guard: a course needs ≥ 1 module. `VIDEO` lessons require `videoUrl`. Slugs auto-generate from the title and must match `^[a-z0-9]+(-[a-z0-9]+)*$`.
+- Frontend types come from `graphql-codegen` (`typescript-operations` only — v6 emits referenced enums/inputs itself; adding the `typescript` plugin duplicates them). Operation strings live in `src/graphql/learn-documents.ts`; `npm run lint` runs codegen first so schema drift fails the build.
+- Admin pages do not gate on the portal role from `useAuth()`; the learn service's own policy decides and the UI shows its `FORBIDDEN`.
+- Reorder UI uses ▲/▼ buttons (no drag library).
+
+After changing the migration, an existing dev database must be reset: `DROP SCHEMA learn CASCADE;` then `docker compose up migrate-learn` (Flyway will otherwise fail checksum validation on V1).
+
 - Migration **V2** (slug, difficulty, tags, published, modules, typed lessons, data move).
 - Schema: `Course.modules`, `Module.lessons`, `Lesson{type, contentMd, videoUrl}`, `courses(filter)`, `course(slug)`, `lesson(id)`; author mutations `upsertCourse`, `upsertModule`, `upsertLesson`, `reorder`, `publish(COURSE)`. Remove `createCourse`/`createLesson`.
 - Visibility: learner queries filter `published = true` in repositories; `@BatchMapping` for `modules`/`lessons`.

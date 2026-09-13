@@ -334,3 +334,55 @@
 .animate-htb-flicker {
   animation: htb-flicker 4s linear infinite;
 }
+
+/* ---------- markdown content (lessons, course descriptions) ---------- */
+.htb-prose {
+  color: var(--color-htb-text);
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+.htb-prose > * + * { margin-top: 0.9em; }
+.htb-prose h1, .htb-prose h2, .htb-prose h3, .htb-prose h4 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-htb-text);
+  margin-top: 1.4em;
+}
+.htb-prose h1 { font-size: 1.75rem; }
+.htb-prose h2 { font-size: 1.35rem; }
+.htb-prose h2::before, .htb-prose h3::before { content: "# "; color: var(--color-htb-green); font-family: var(--font-mono); }
+.htb-prose h3 { font-size: 1.1rem; }
+.htb-prose a { color: var(--color-htb-green); text-decoration: underline; text-underline-offset: 3px; }
+.htb-prose strong { color: var(--color-htb-text); font-weight: 600; }
+.htb-prose ul, .htb-prose ol { padding-left: 1.4em; }
+.htb-prose ul { list-style: square; }
+.htb-prose ol { list-style: decimal; }
+.htb-prose li + li { margin-top: 0.25em; }
+.htb-prose blockquote {
+  border-left: 2px solid var(--color-htb-green);
+  padding-left: 1em;
+  color: var(--color-htb-text-muted);
+}
+.htb-prose code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: var(--color-htb-bg-elevated);
+  border: 1px solid var(--color-htb-border);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+  color: var(--color-htb-cyan);
+}
+.htb-prose pre {
+  background: var(--color-htb-bg);
+  border: 1px solid var(--color-htb-border);
+  border-radius: 4px;
+  padding: 1em;
+  overflow-x: auto;
+}
+.htb-prose pre code { background: none; border: 0; padding: 0; color: var(--color-htb-text); }
+.htb-prose table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+.htb-prose th, .htb-prose td { border: 1px solid var(--color-htb-border); padding: 0.4em 0.6em; text-align: left; }
+.htb-prose th { background: var(--color-htb-bg-elevated); font-family: var(--font-mono); text-transform: uppercase; font-size: 0.7em; letter-spacing: 0.08em; }
+.htb-prose img { max-width: 100%; border-radius: 4px; border: 1px solid var(--color-htb-border); }
+.htb-prose hr { border: 0; border-top: 1px solid var(--color-htb-border); }

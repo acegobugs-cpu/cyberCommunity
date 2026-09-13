@@ -1,8 +1,10 @@
 package com.cyberclub.learn.services;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -11,61 +13,89 @@ import org.springframework.transaction.annotation.Transactional;
 import com.cyberclub.learn.dtos.domain.Lesson;
 import com.cyberclub.learn.dtos.domain.LessonType;
 import com.cyberclub.learn.dtos.domain.Module;
-import com.cyberclub.learn.dtos.domain.ReorderInput;
+import com.cyberclub.learn.dtos.inputs.LessonInput;
+import com.cyberclub.learn.exceptions.BadRequestException;
+import com.cyberclub.learn.exceptions.NotFoundException;
+import com.cyberclub.learn.repositories.CourseRepo;
 import com.cyberclub.learn.repositories.LessonRepo;
+import com.cyberclub.learn.repositories.ModuleRepo;
 
 @Service
 public class LessonService {
-    
+
     private final LessonRepo lessonRepo;
+    private final ModuleRepo moduleRepo;
+    private final CourseRepo courseRepo;
 
-    public LessonService(LessonRepo lessonRepo){
+    public LessonService(LessonRepo lessonRepo, ModuleRepo moduleRepo, CourseRepo courseRepo) {
         this.lessonRepo = lessonRepo;
+        this.moduleRepo = moduleRepo;
+        this.courseRepo = courseRepo;
     }
 
-    public List<Lesson> allLessons(){
-        return lessonRepo.findAll();
+    /** Null when missing, or when the owning course is not published and the caller is a learner. */
+    public Lesson byId(UUID id, boolean includeUnpublished) {
+        Lesson lesson = lessonRepo.findById(id).orElse(null);
+        if (lesson == null) return null;
+        if (includeUnpublished) return lesson;
+        return lessonRepo.courseStatusOf(id).filter("PUBLISHED"::equals).isPresent() ? lesson : null;
     }
 
-    public Lesson getLessonById(UUID id){
-        // Assuming you have a method in LessonRepo to find a lesson by its ID
-        return lessonRepo.findById(id);
-    }
-
-    public Lesson getLessonByModuleID(UUID id){
-        return lessonRepo.findByModuleId(id);
-    }
-
-    public List<Lesson> getLessonsByModuleIds(List<UUID> moduleIds){
-        return lessonRepo.findByModuleIds(moduleIds);
-    }
-
-    public Map<Module, List<Lesson>> getLessonsForModules(List<Module> modules){
-
-        List<UUID> moduleIds = modules.stream().map(Module::id).toList();
-
-        List<Lesson> allLessons = lessonRepo.findByModuleIds(moduleIds);
-
-        Map<UUID, List<Lesson>> lessonsByModuleId = allLessons.stream()
-                .collect(Collectors.groupingBy(Lesson::moduleId));
-
-        return modules.stream()
-                .collect(Collectors.toMap(
-                    module -> module,
-                    module -> lessonsByModuleId.getOrDefault(module.id(), List.of())
-                ));
-    }
-
-    public Lesson createLesson(UUID moduleId, String title, LessonType lessonType, String contentMd, String videoUrl, int position, int estimatedMinutes){
-        return lessonRepo.save(moduleId, title, lessonType, contentMd, videoUrl, position, estimatedMinutes);
+    public Map<Module, List<Lesson>> forModules(List<Module> modules) {
+        Map<UUID, List<Lesson>> byModule = lessonRepo
+            .findByModuleIds(modules.stream().map(Module::id).toList())
+            .stream()
+            .collect(Collectors.groupingBy(Lesson::moduleId));
+        return modules.stream().collect(Collectors.toMap(
+            Function.identity(),
+            m -> byModule.getOrDefault(m.id(), List.of()),
+            (a, b) -> a,
+            java.util.LinkedHashMap::new));
     }
 
     @Transactional
-    public boolean reorderLessons(List<ReorderInput> items) {
-        if (items == null || items.isEmpty()) {
-            return false;
+    public Lesson upsert(LessonInput in) {
+        String title = CourseService.required(in.title(), "title");
+        LessonType type = in.type() == null ? LessonType.READING : in.type();
+        if (type == LessonType.EXERCISE) {
+            throw new BadRequestException("EXERCISE lessons are not available yet");
         }
-        lessonRepo.updatePosition(items);
-        return true;
+        if (type == LessonType.VIDEO && (in.videoUrl() == null || in.videoUrl().isBlank())) {
+            throw new BadRequestException("VIDEO lessons need a videoUrl");
+        }
+        int minutes = in.estimatedMinutes() == null ? 0 : in.estimatedMinutes();
+        if (minutes < 0) throw new BadRequestException("estimatedMinutes must be >= 0");
+
+        Module module = moduleRepo.findById(in.moduleId()).orElseThrow(() -> new NotFoundException("module not found"));
+
+        Lesson saved;
+        if (in.id() == null) {
+            int position = in.position() == null ? lessonRepo.nextPosition(in.moduleId()) : in.position();
+            saved = lessonRepo.insert(in.moduleId(), title, type, in.contentMd(), in.videoUrl(), minutes, position);
+        } else {
+            Lesson existing = lessonRepo.findById(in.id()).orElseThrow(() -> new NotFoundException("lesson not found"));
+            if (!existing.moduleId().equals(in.moduleId())) {
+                throw new BadRequestException("lessons cannot be moved between modules");
+            }
+            saved = lessonRepo.update(existing.id(), title, type, in.contentMd(), in.videoUrl(), minutes, in.position());
+        }
+        courseRepo.refreshEstimatedMinutes(module.courseId());
+        return saved;
+    }
+
+    @Transactional
+    public void reorder(UUID moduleId, List<UUID> orderedIds) {
+        ModuleService.validateReorder(new HashSet<>(lessonRepo.idsForModule(moduleId)), orderedIds, "lesson");
+        lessonRepo.reorder(orderedIds);
+    }
+
+    @Transactional
+    public boolean delete(UUID id) {
+        Lesson l = lessonRepo.findById(id).orElseThrow(() -> new NotFoundException("lesson not found"));
+        boolean deleted = lessonRepo.delete(id);
+        List<UUID> rest = lessonRepo.findByModuleIds(List.of(l.moduleId())).stream().map(Lesson::id).toList();
+        if (!rest.isEmpty()) lessonRepo.reorder(rest);
+        moduleRepo.findById(l.moduleId()).ifPresent(m -> courseRepo.refreshEstimatedMinutes(m.courseId()));
+        return deleted;
     }
 }

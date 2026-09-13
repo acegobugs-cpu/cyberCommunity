@@ -1,48 +1,32 @@
 CREATE SCHEMA IF NOT EXISTS learn;
 SET search_path TO learn;
 
--- Custom Types
-CREATE TYPE difficulty AS ENUM ('BEGINNER', 'INTERMEDIATE', 'ADVANCED');
-CREATE TYPE lesson_type AS ENUM ('READING', 'VIDEO', 'QUIZ');
-CREATE TYPE course_status AS ENUM ('DRAFT', 'PUBLISHED', 'ARCHIVED');
+-- Enumerations are TEXT + CHECK (not PostgreSQL ENUM types): later migrations
+-- can extend them with a plain ALTER TABLE ... DROP/ADD CONSTRAINT inside a
+-- Flyway transaction, and JDBC needs no casts.
 
--- Trigger Function for Auto-Slug Generation
-CREATE OR REPLACE FUNCTION generate_course_slug()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.slug IS NULL OR NEW.slug = '' THEN
-        NEW.slug := lower(regexp_replace(NEW.title, '[^a-zA-Z0-9]+', '-', 'g')) 
-                    || '-' || left(NEW.id::text, 8);
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- 1. Courses Table
+-- 1. Courses
 CREATE TABLE courses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(255) NOT NULL,
     slug VARCHAR(255) NOT NULL UNIQUE,
     description TEXT,
-    difficulty difficulty NOT NULL DEFAULT 'BEGINNER',
+    difficulty TEXT NOT NULL DEFAULT 'BEGINNER'
+        CHECK (difficulty IN ('BEGINNER', 'INTERMEDIATE', 'ADVANCED')),
     tags TEXT[] NOT NULL DEFAULT '{}',
-    status course_status NOT NULL DEFAULT 'DRAFT',
+    status TEXT NOT NULL DEFAULT 'DRAFT'
+        CHECK (status IN ('DRAFT', 'PUBLISHED', 'ARCHIVED')),
     created_by UUID,
-    estimated_minutes INT NOT NULL DEFAULT 0,
+    estimated_minutes INT NOT NULL DEFAULT 0,          -- cache: SUM(lessons.estimated_minutes)
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     archived_at TIMESTAMPTZ
 );
 
-CREATE TRIGGER trg_courses_slug
-BEFORE INSERT ON courses
-FOR EACH ROW EXECUTE FUNCTION generate_course_slug();
-
--- Indexes for Courses
 CREATE INDEX idx_courses_status ON courses(status) WHERE archived_at IS NULL;
 CREATE INDEX idx_courses_tags ON courses USING GIN(tags);
 
--- 2. Modules Table
+-- 2. Modules
 CREATE TABLE modules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
@@ -52,17 +36,19 @@ CREATE TABLE modules (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT uq_modules_position UNIQUE (course_id, position)
+    -- DEFERRABLE so a reorder can swap positions inside one transaction
+    CONSTRAINT uq_modules_position UNIQUE (course_id, position) DEFERRABLE INITIALLY DEFERRED
 );
 
 CREATE INDEX idx_modules_course_id ON modules(course_id);
 
--- 3. Lessons Table
+-- 3. Lessons
 CREATE TABLE lessons (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     module_id UUID NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
-    type lesson_type NOT NULL DEFAULT 'READING',
+    type TEXT NOT NULL DEFAULT 'READING'
+        CHECK (type IN ('READING', 'VIDEO', 'QUIZ', 'LAB', 'PROJECT', 'EXERCISE')),
     content_md TEXT,
     video_url TEXT,
     estimated_minutes INT NOT NULL DEFAULT 0,
@@ -70,7 +56,7 @@ CREATE TABLE lessons (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT uq_lessons_position UNIQUE (module_id, position)
+    CONSTRAINT uq_lessons_position UNIQUE (module_id, position) DEFERRABLE INITIALLY DEFERRED
 );
 
 CREATE INDEX idx_lessons_module_id ON lessons(module_id);
