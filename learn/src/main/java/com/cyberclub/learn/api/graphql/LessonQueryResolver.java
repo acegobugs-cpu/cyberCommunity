@@ -5,12 +5,12 @@ import java.util.UUID;
 
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
-import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.stereotype.Controller;
-import com.cyberclub.learn.security.Policies;
 
-import com.cyberclub.learn.dtos.Course;
-import com.cyberclub.learn.dtos.Lesson;
+import com.cyberclub.learn.security.Policies;
+import com.cyberclub.learn.dtos.domain.Lesson;
+import com.cyberclub.learn.dtos.domain.LessonType;
+import com.cyberclub.learn.dtos.domain.ReorderInput;
 import com.cyberclub.learn.services.LessonService;
 import com.cyberclub.learn.services.AuthService;
 
@@ -25,15 +25,15 @@ public class LessonQueryResolver {
         this.lessonService = lessonService;
     }
 
-    @SchemaMapping(typeName = "Course", field = "lessons")
-    public List<Lesson> lessons(Course course){
-        auth.require(Policies.LEARNER);
-        return lessonService.getLessonsForCourses(course.id());
+    @MutationMapping
+    public Lesson createLesson(@Argument UUID moduleId, @Argument String title, @Argument LessonType lessonType, @Argument String contentMd, @Argument String videoUrl, @Argument int position, @Argument int estimatedMinutes){
+        auth.require(Policies.CONTENT_AUTHOR);
+        return lessonService.createLesson(moduleId, title, lessonType, contentMd, videoUrl, position, estimatedMinutes);
     }
 
     @MutationMapping
-    public Lesson createLesson(@Argument UUID courseId, @Argument String title, @Argument String content, @Argument int orderIndex){
+    public boolean reorderLessons(@Argument UUID moduleId, @Argument List<ReorderInput> items) {
         auth.require(Policies.CONTENT_AUTHOR);
-        return lessonService.createLesson(courseId, title, content, orderIndex);
+        return lessonService.reorderLessons(items);
     }
 }

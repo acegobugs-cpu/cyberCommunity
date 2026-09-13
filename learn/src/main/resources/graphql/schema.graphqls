@@ -1,30 +1,125 @@
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum LessonType {
+  READING
+  VIDEO
+  QUIZ
+  PROJECT
+  LAB
+}
+
 type Course {
   id: ID!
+
   title: String!
+  slug: String!
   description: String
+  tag: [String!]
+
+  difficulty: Difficulty!
+  status: CourseStatus!
+
+  estimatedMinutes: Int!
+
+  createdBy: ID!
+
   createdAt: String!
+  updatedAt: String
+  archivedAt: String
+  
+  modules: [Module!]!
+}
+
+type Module {
+  id: ID!
+  courseId: ID!
+
+  title: String!
+  descriptionMd: String
+
+  position: Int!
+
+  createdAt: String!
+  updatedAt: String
+
   lessons: [Lesson!]!
 }
 
 type Lesson {
   id: ID!
-  courseId: ID!
+  moduleId: ID!
+
   title: String!
-  content: String
-  orderIndex: Int!
+  type: LessonType!
+  contentMd: String
+  videoUrl: String
+
+  position: Int!
+  estimatedMinutes: Int!
+  
+  createdAt: String!
+  updatedAt: String
 }
 
 type Query {
   courses: [Course!]!
-  course(id: ID!): Course
+  course(id: ID): Course
+  courseBySlug(slug: String!): Course
+}
+
+# Input types for clean Upsert mutations
+input UpsertCourseInput {
+  id: ID
+  title: String!
+  slug: String!
+  description: String
+  difficulty: Difficulty!
+  tag: [String!]
+  estimatedMinutes: Int!
+}
+
+input UpsertModuleInput {
+  id: ID
+  courseId: ID!
+  title: String!
+  descriptionMd: String
+  position: Int!
+}
+
+input UpsertLessonInput {
+  id: ID
+  moduleId: ID!
+  title: String!
+  type: LessonType!
+  contentMd: String
+  videoUrl: String
+  position: Int!
+  estimatedMinutes: Int!
+}
+
+input ReorderInput {
+  id: ID!
+  position: Int!
 }
 
 type Mutation {
-  createCourse(title: String!, description: String): Course!
-  createLesson(
-    courseId: ID!
-    title: String!
-    content: String
-    orderIndex: Int!
-  ): Lesson!
+  # L1 Author Mutations
+  upsertCourse(input: UpsertCourseInput!): Course!
+  upsertModule(input: UpsertModuleInput!): Module!
+  upsertLesson(input: UpsertLessonInput!): Lesson!
+  
+  publishCourse(id: ID!): Course!
+  
+  reorderModules(courseId: ID!, items: [ReorderInput!]!): Boolean!
+  reorderLessons(moduleId: ID!, items: [ReorderInput!]!): Boolean!
 }

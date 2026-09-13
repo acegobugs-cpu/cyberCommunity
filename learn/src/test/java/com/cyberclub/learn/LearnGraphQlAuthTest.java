@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.graphql.execution.ErrorType;
 import org.springframework.graphql.test.tester.HttpGraphQlTester;
 
-import com.cyberclub.learn.dtos.Course;
+import com.cyberclub.learn.dtos.domain.Course;
 
 /**
  * Authorization matrix for the L0 baseline schema. Every resolver calls

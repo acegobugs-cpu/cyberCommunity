@@ -28,8 +28,12 @@ public abstract class BaseIntegrationTest {
     public static final String SECRET = "test-internal-secret";
     public static final String USER_ID = "11111111-1111-1111-1111-111111111111";
 
-    static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16");
+    static final PostgreSQLContainer<?> postgres;
     protected static final FakeIdentity identity = new FakeIdentity();
+
+    static {
+        postgres = new PostgreSQLContainer<>("postgres:16");
+    }
 
     static {
         postgres.start();
