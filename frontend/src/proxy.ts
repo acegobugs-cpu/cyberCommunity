@@ -19,7 +19,7 @@ import {
  * `/api/*`, `/_next/*` and static files are host-agnostic and pass through.
  */
 const PORTAL_ONLY_PATHS = new Set([
-  "dashboard",
+  "home",
   "settings",
   "members",
   "announcements",

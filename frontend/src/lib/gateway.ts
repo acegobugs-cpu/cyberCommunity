@@ -32,7 +32,6 @@ export async function gatewayFetch(
   path: string,
   options: {
     service: GatewayService;
-    token?: string | null;
     method?: string;
     body?: BodyInit | null;
     headers?: HeadersInit;
@@ -40,8 +39,9 @@ export async function gatewayFetch(
 ): Promise<Response> {
   const headers = new Headers(options.headers ?? {});
   headers.set("X-Service-Name", options.service);
-  if (options.token) {
-    headers.set("Authorization", `Bearer ${options.token}`);
+  if (!headers.has("Authorization")) {
+    const token = await getSessionToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
   }
   if (options.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
