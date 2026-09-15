@@ -28,7 +28,6 @@ export async function learnQuery<T, V extends object = Record<string, never>>(
     method: "POST",
     body: JSON.stringify({ query, variables }),
   });
-  console.log(await res);
   if (!res.ok) {
     throw new Error(`learn responded ${res.status}`);
   }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { gatewayFetch } from "@/lib/gateway";
-import { accountFromToken, storeAccount, summarize, toUser } from "@/lib/server/session";
+import { accountFromToken, getSessionToken, storeAccount, summarize, toUser } from "@/lib/server/session";
 import type { AuthResponse, SessionResponse } from "@/lib/types";
 
 /**
@@ -11,15 +11,24 @@ import type { AuthResponse, SessionResponse } from "@/lib/types";
  */
 export async function exchangeForSession(
   identityPath: string,
-  options: { body?: string; token?: string | null; created?: boolean; usernameHint?: string } = {},
+  options: { body?: string; token?: string | null; created?: boolean; usernameHint?: string; } = {},
 ): Promise<NextResponse> {
+  const headers = new Headers();
+
+  // 1. Resolve token from options first, then fallback to getSessionToken()
+  const token = options.token ?? (await getSessionToken());
+
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
   let upstream: Response;
+
   try {
     upstream = await gatewayFetch(identityPath, {
       service: "identity",
       method: "POST",
       body: options.body ?? null,
-      token: options.token,
+      headers,
     });
   } catch (err) {
     return NextResponse.json(
