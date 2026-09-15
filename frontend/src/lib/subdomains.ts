@@ -51,7 +51,7 @@ export function extractSubdomain(host: string | null): Subdomain | null {
   const root = ROOT_DOMAIN;
 
   if (hostname === root || hostname === `www.${root}`) {
-    return SUBDOMAINS.WWW;
+    return SUBDOMAINS.PORTAL;
   }
 
   if (hostname.endsWith(`.${root}`)) {
@@ -62,16 +62,18 @@ export function extractSubdomain(host: string | null): Subdomain | null {
     }
   }
 
-  if (hostname === "localhost" || hostname === "127.0.0.1") return SUBDOMAINS.WWW;
+  if (hostname === "localhost" || hostname === "127.0.0.1") return SUBDOMAINS.PORTAL;
   if (hostname.endsWith(".localhost")) {
     const sub = hostname.split(".")[0];
     if ((Object.values(SUBDOMAINS) as string[]).includes(sub)) {
       return sub as Subdomain;
     }
+    return SUBDOMAINS.PORTAL;
   }
 
   return null;
 }
+
 
 export function isValidSubdomain(value: string): value is Subdomain {
   return (Object.values(SUBDOMAINS) as string[]).includes(value);

@@ -1,16 +1,65 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { gatewayFetch } from "@/lib/gateway";
-import { setSessionCookie, userFromToken } from "@/lib/server/session";
+import { accountFromToken, storeAccount, summarize, toUser } from "@/lib/server/session";
 import type { AuthResponse, SessionResponse } from "@/lib/types";
 
 /**
- * Exchanges credentials for a JWT via identity, stores the JWT in an httpOnly
- * cookie and returns only the (non-sensitive) user profile to the browser.
+ * Shared tail of signin / signup / join: call identity, store the issued JWT
+ * in the account cookies (and make it active for this host), return only the
+ * non-sensitive session view to the browser.
  */
+export async function exchangeForSession(
+  identityPath: string,
+  options: { body?: string; token?: string | null; created?: boolean; usernameHint?: string } = {},
+): Promise<NextResponse> {
+  let upstream: Response;
+  try {
+    upstream = await gatewayFetch(identityPath, {
+      service: "identity",
+      method: "POST",
+      body: options.body ?? null,
+      token: options.token,
+    });
+  } catch (err) {
+    return NextResponse.json(
+      { error: "gateway unreachable", detail: err instanceof Error ? err.message : "unknown" },
+      { status: 502 },
+    );
+  }
+
+  const text = await upstream.text();
+  if (!upstream.ok) {
+    return new NextResponse(text, {
+      status: upstream.status,
+      headers: { "Content-Type": upstream.headers.get("content-type") ?? "application/json" },
+    });
+  }
+
+  let auth: AuthResponse | null = null;
+  try {
+    auth = JSON.parse(text) as AuthResponse;
+  } catch {
+    /* handled below */
+  }
+  const account = auth?.accessToken ? accountFromToken(auth.accessToken, options.usernameHint) : null;
+  if (!auth || !account) {
+    return NextResponse.json({ error: "invalid response from identity" }, { status: 502 });
+  }
+
+  // Body first (needs the final account list), then cookies on the same response.
+  const res = NextResponse.json({} as SessionResponse, { status: options.created ? 201 : 200 });
+  const all = await storeAccount(res, account);
+  const body: SessionResponse = { user: toUser(account), expiresIn: auth.expiresIn, accounts: all.map(summarize) };
+  const out = NextResponse.json(body, { status: res.status });
+  for (const c of res.cookies.getAll()) out.cookies.set(c);
+  return out;
+}
+
+/** Signin/signup: JSON credentials in, session out. `service` = the app the user signed in from. */
 export async function completeAuth(
   req: NextRequest,
-  backendPath: "/signin" | "/signup",
+  identityPath: "/api/auth/signin" | "/api/auth/signup",
 ): Promise<NextResponse> {
   let payload: Record<string, unknown>;
   try {
@@ -18,67 +67,14 @@ export async function completeAuth(
   } catch {
     return NextResponse.json({ error: "invalid JSON body" }, { status: 400 });
   }
-  const username =
-    typeof payload.username === "string" ? payload.username : undefined;
 
-  let upstream: Response;
-  try {
-    upstream = await gatewayFetch(backendPath, {
-      service: "identity",
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-  } catch (err) {
-    return NextResponse.json(
-      {
-        error: "gateway unreachable",
-        detail: err instanceof Error ? err.message : "unknown",
-      },
-      { status: 502 },
-    );
-  }
+  const service = req.nextUrl.searchParams.get("service");
+  const isSignup = identityPath.endsWith("/signup");
+  const path = isSignup && service ? `${identityPath}?service=${encodeURIComponent(service)}` : identityPath;
 
-  const text = await upstream.text();
-
-  if (!upstream.ok) {
-    // Pass identity's error body/status straight through.
-    return new NextResponse(text, {
-      status: upstream.status,
-      headers: {
-        "Content-Type":
-          upstream.headers.get("content-type") ?? "application/json",
-      },
-    });
-  }
-
-  let auth: AuthResponse;
-  try {
-    auth = JSON.parse(text) as AuthResponse;
-  } catch {
-    return NextResponse.json(
-      { error: "invalid response from identity" },
-      { status: 502 },
-    );
-  }
-  if (!auth?.accessToken) {
-    return NextResponse.json(
-      { error: "identity response missing accessToken" },
-      { status: 502 },
-    );
-  }
-
-  const user = userFromToken(auth.accessToken, username);
-  if (!user) {
-    return NextResponse.json(
-      { error: "identity returned an invalid or expired token" },
-      { status: 502 },
-    );
-  }
-
-  const body: SessionResponse = { user, expiresIn: auth.expiresIn };
-  const res = NextResponse.json(body, {
-    status: backendPath === "/signup" ? 201 : 200,
+  return exchangeForSession(path, {
+    body: JSON.stringify(payload),
+    created: isSignup,
+    usernameHint: typeof payload.username === "string" ? payload.username : undefined,
   });
-  setSessionCookie(res, auth.accessToken, auth.expiresIn);
-  return res;
 }

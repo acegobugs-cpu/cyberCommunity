@@ -15,13 +15,10 @@ import {
  *   <root>/dashboard         → portal pages, untouched
  *   <root>/learn             → redirect → learn.<root>/   (areas are NOT reachable by path on the portal host)
  *   any-host/sites/learn/x   → redirect → learn.<root>/x  (internal prefix must not leak)
- *   learn.<root>/signin      → redirect → <root>/signin   (portal pages only on the portal host)
  *
  * `/api/*`, `/_next/*` and static files are host-agnostic and pass through.
  */
 const PORTAL_ONLY_PATHS = new Set([
-  "signin",
-  "signup",
   "dashboard",
   "settings",
   "members",
@@ -29,6 +26,7 @@ const PORTAL_ONLY_PATHS = new Set([
   "events",
 ]);
 
+const AUTH_PATHS = new Set(["signin", "signup"]);
 /**
  * Cross-host redirect. Next relativises a Location whose origin equals the
  * server's own origin (`http://localhost:<port>` under `next start`), which is
@@ -64,11 +62,20 @@ export function proxy(request: NextRequest) {
   }
 
   if (isSiteArea(subdomain)) {
-    // Portal-only pages (auth, dashboard, …) live on the portal host.
     const first = pathname.split("/")[1];
+
+    // Portal-only pages (dashboard, members, …) live on the portal host.
     if (PORTAL_ONLY_PATHS.has(first)) {
       return redirectTo(areaUrl("portal", host, pathname));
     }
+
+    // /signin and /signup are shared by every app: serve them as-is on this host.
+    if (AUTH_PATHS.has(first)) {
+      const res = NextResponse.next();
+      res.headers.set("x-subdomain", subdomain);
+      return res;
+    }
+
     // Area host: everything else is served from /sites/<area>/**
     const rewritten = url.clone();
     rewritten.pathname = `${SITES_PREFIX}/${subdomain}${pathname === "/" ? "" : pathname}`;

@@ -1,7 +1,7 @@
 package com.cyberclub.identity.user;
 
 import com.cyberclub.identity.BaseIntegrationTest;
-import com.cyberclub.identity.services.UserRegService;
+import com.cyberclub.identity.services.AuthService;
 import com.cyberclub.identity.exceptions.*;
 
 import org.junit.jupiter.api.Test;
@@ -12,14 +12,15 @@ import static org.assertj.core.api.Assertions.*;
 class LoginTest extends BaseIntegrationTest {
 
     @Autowired
-    UserRegService registrationService;
+    AuthService registrationService;
 
     @Test
     void authenticates_with_correct_password() {
         registrationService.register(
             "login",
             "Login@example.com",
-            "secret"
+            "secret",
+            "portal"
         );
 
         assertThatCode(() ->
@@ -32,7 +33,8 @@ class LoginTest extends BaseIntegrationTest {
         registrationService.register(
             "badpass@test.com",
             "User",
-            "correct"
+            "correct",
+            "learn"
         );
 
         assertThatThrownBy(() ->

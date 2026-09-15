@@ -30,6 +30,10 @@ const COURSE_TREE = /* GraphQL */ `
   }
 `;
 
+export const ME = /* GraphQL */ `
+  query Me { me { userId role canAuthor } }
+`;
+
 export const CATALOGUE = /* GraphQL */ `
   ${COURSE_CARD}
   query Catalogue($difficulty: Difficulty, $tag: String, $search: String) {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSessionToken } from "@/lib/server/session";
 import { getCatalogue } from "@/lib/data/learn";
 import { CourseCard } from "@/components/learn/ui";
+import { AccountSwitcher } from "@/components/account-switcher";
 import type { Difficulty } from "@/graphql/generated";
 
 export const metadata = { title: "Learn — Cyber Club Portal" };
@@ -18,6 +19,7 @@ export default async function LearnCataloguePage({
   const difficulty = DIFFICULTIES.includes(params.difficulty as Difficulty)
     ? (params.difficulty as Difficulty)
     : undefined;
+
   const token = await getSessionToken();
   const { courses, error } = await getCatalogue(token, {
     difficulty,
@@ -86,6 +88,8 @@ export default async function LearnCataloguePage({
           ! {error}
         </div>
       )}
+
+      <AccountSwitcher service="learn" />
 
       {courses.length === 0 && !error && (
         <div className="htb-card p-10 text-center htb-mono text-xs text-htb-text-dim">

@@ -12,7 +12,9 @@ import org.slf4j.LoggerFactory;
 
 import com.cyberclub.identity.api.dtos.ErrorResponse;
 import com.cyberclub.identity.exceptions.UnauthorizedException;
+import com.cyberclub.identity.exceptions.BadRequestException;
 import com.cyberclub.identity.exceptions.ConflictException;
+import com.cyberclub.identity.exceptions.NotFoundException;
 
 @RestControllerAdvice
 public class ControllerExceptionHandler {
@@ -26,7 +28,7 @@ public class ControllerExceptionHandler {
             req.getHeader("X-Request-Id"), req.getRequestURI(), ex.getMessage());
 
         return new ErrorResponse(
-            "Internal server error",
+            "INTERNAL_ERROR",
             "internal server error",
             req.getRequestURI(),
             req.getHeader("X-Request-Id"),
@@ -38,7 +40,7 @@ public class ControllerExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ErrorResponse handleUnAuthorized( UnauthorizedException ex, HttpServletRequest req){
         return new ErrorResponse(
-            "Unauthorized",
+            "UNAUTHORIZED",
             ex.getMessage(),
             req.getRequestURI(),
             req.getHeader("X-Request-Id"),
@@ -50,7 +52,31 @@ public class ControllerExceptionHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleConflict( ConflictException ex, HttpServletRequest req){
         return new ErrorResponse(
-            "Conflict",
+            "CONFLICT",
+            ex.getMessage(),
+            req.getRequestURI(),
+            req.getHeader("X-Request-Id"),
+            Instant.now()
+        );
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleBadRequest(BadRequestException ex, HttpServletRequest req){
+        return new ErrorResponse(
+            "BAD_REQUEST",
+            ex.getMessage(),
+            req.getRequestURI(),
+            req.getHeader("X-Request-Id"),
+            Instant.now()
+        );
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponse handleNotFound(NotFoundException ex, HttpServletRequest req){
+        return new ErrorResponse(
+            "NOT_FOUND",
             ex.getMessage(),
             req.getRequestURI(),
             req.getHeader("X-Request-Id"),

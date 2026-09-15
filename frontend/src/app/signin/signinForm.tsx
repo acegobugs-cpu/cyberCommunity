@@ -1,15 +1,19 @@
+// app/(portal)/signin/SigninForm.tsx
 "use client";
 
 import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import { useAfterAuth } from "@/lib/use-after-auth";
 import { ApiError } from "@/lib/api";
 
-export default function SignupPage() {
-  const router = useRouter();
-  const { signup } = useAuth();
-  const [username, setUsername] = useState("");
+interface SigninFormProps {
+  currentSubdomain: string;
+}
+
+export function SigninForm({ currentSubdomain }: SigninFormProps) {
+  const afterAuth = useAfterAuth();
+  const { signin } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -20,72 +24,47 @@ export default function SignupPage() {
     setError(null);
     setSuccess(false);
 
-    if (username.trim().length < 3) {
-      setError("username must be at least 3 characters");
+    if (!email) {
+      setError("please enter your email");
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError("please enter a valid email address");
-      return;
-    }
-    if (password.length < 8) {
-      setError("password must be at least 8 characters");
+    if (!password) {
+      setError("please enter your password");
       return;
     }
 
     setLoading(true);
     try {
-      await signup(username.trim(), email.trim(), password);
+      await signin(email, password);
       setSuccess(true);
-      await new Promise((r) => setTimeout(r, 600));
-      router.push("/dashboard");
+      afterAuth();
     } catch (err) {
       if (err instanceof ApiError) {
         setError(formatApiError(err));
       } else if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError("signup failed");
+        setError("sign in failed");
       }
     } finally {
       setLoading(false);
     }
-  }, [username, email, password, signup, router]);
+  }, [email, password, signin, afterAuth]);
 
   return (
     <main className="flex-1 flex items-center justify-center px-6 py-16">
       <div className="w-full max-w-md">
         <div className="htb-mono text-xs uppercase tracking-widest text-htb-text-dim mb-2">
-          &gt; auth --register
+          &gt; auth --signin [{currentSubdomain}]
         </div>
         <h1 className="htb-heading text-3xl text-htb-text">
-          New operator<span className="text-htb-green">_</span>
+          Welcome back<span className="text-htb-green">_</span>
         </h1>
         <p className="htb-mono text-sm text-htb-text-muted mt-2">
-          Create your account to start tracking points, joining CTFs, and
-          climbing the leaderboard.
+          Sign in to access your {currentSubdomain} dashboard, courses, and CTF scores.
         </p>
 
         <div className="mt-8 space-y-5">
-          <div>
-            <label className="htb-label" htmlFor="username">
-              username
-            </label>
-            <input
-              id="username"
-              name="username"
-              type="text"
-              autoComplete="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="htb-input"
-              placeholder="operator_42"
-            />
-            <div className="htb-mono text-[0.65rem] text-htb-text-dim mt-1">
-              3+ characters
-            </div>
-          </div>
-
           <div>
             <label className="htb-label" htmlFor="email">
               email
@@ -98,7 +77,7 @@ export default function SignupPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="htb-input"
-              placeholder="you@example.com"
+              placeholder="operator@cyberclubportal.com"
             />
           </div>
 
@@ -110,15 +89,12 @@ export default function SignupPage() {
               id="password"
               name="password"
               type="password"
-              autoComplete="new-password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="htb-input"
-              placeholder="at least 8 characters"
+              placeholder="••••••••"
             />
-            <div className="htb-mono text-[0.65rem] text-htb-text-dim mt-1">
-              8+ characters
-            </div>
           </div>
 
           {error && (
@@ -132,7 +108,7 @@ export default function SignupPage() {
           {success && (
             <div className="htb-card border-htb-green/40 bg-htb-green/5 p-3">
               <div className="htb-mono text-xs text-htb-green">
-                ✓ account created — redirecting to dashboard...
+                ✓ authenticated — redirecting...
               </div>
             </div>
           )}
@@ -144,18 +120,18 @@ export default function SignupPage() {
             className="htb-button htb-button-primary w-full disabled:opacity-50"
           >
             {loading
-              ? "creating account..."
+              ? "authenticating..."
               : success
                 ? "success"
-                : "Create account"}
+                : "Sign in"}
             <span className="htb-mono">→</span>
           </button>
         </div>
 
         <div className="mt-6 text-center htb-mono text-xs text-htb-text-muted">
-          already have an account?{" "}
-          <Link href="/signin" className="text-htb-green hover:underline">
-            sign in →
+          new here?{" "}
+          <Link href="/signup" className="text-htb-green hover:underline">
+            create an account →
           </Link>
         </div>
       </div>
@@ -165,7 +141,7 @@ export default function SignupPage() {
 
 function formatApiError(err: ApiError): string {
   const body = err.body as
-    | { error?: string; message?: string; timestamp?: string }
+    | { error?: string; message?: string }
     | string
     | null;
 
@@ -174,15 +150,14 @@ function formatApiError(err: ApiError): string {
   }
 
   if (body && typeof body === "object") {
-    if (body.error && body.message) {
-      return `${body.error}: ${body.message}`;
-    }
+    if (body.error && body.message) return `${body.error}: ${body.message}`;
     if (body.error) return body.error;
     if (body.message) return body.message;
   }
 
   if (err.status === 0) return "network error — is the gateway reachable?";
-  if (err.status === 409) return "email or username already in use";
+  if (err.status === 401) return "invalid email or password";
+  if (err.status === 404) return "no account exists with this email";
   if (err.status === 502) return "gateway unreachable — is docker-compose up?";
   if (err.status >= 500) return `server error (${err.status})`;
   return `request failed (${err.status})`;

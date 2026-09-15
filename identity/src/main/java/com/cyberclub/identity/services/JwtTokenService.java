@@ -1,7 +1,7 @@
 package com.cyberclub.identity.services;
 
 import com.cyberclub.identity.config.JwtProperties;
-import com.cyberclub.identity.api.dtos.User;
+import com.cyberclub.identity.api.dtos.UserRecord;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -32,7 +32,7 @@ public class JwtTokenService {
 
     
 
-    public String generate(User user) {
+    public String generate(UserRecord user) {
         Instant now = Instant.now();
         Instant expiry = now.plusSeconds(properties.expiration());
 

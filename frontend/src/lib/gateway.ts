@@ -7,7 +7,7 @@ const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:808
 export type GatewayService = "identity" | "portal" | "learn" | "community" | "challenge";
 
 /** Headers that must never be forwarded to (or returned from) the gateway. */
-const STRIP_REQUEST_HEADERS = new Set([
+export const STRIP_REQUEST_HEADERS = new Set([
   "host",
   "content-length",
   "connection",
@@ -16,7 +16,7 @@ const STRIP_REQUEST_HEADERS = new Set([
   "x-internal-auth",
   "x-user-id",
 ]);
-const STRIP_RESPONSE_HEADERS = new Set([
+export const STRIP_RESPONSE_HEADERS = new Set([
   "content-encoding",
   "transfer-encoding",
   "connection",
@@ -86,6 +86,7 @@ export async function forwardToGateway(
     req.method === "GET" || req.method === "HEAD" ? undefined : await req.text();
 
   let upstream: Response;
+
   try {
     upstream = await fetch(url, {
       method: req.method,

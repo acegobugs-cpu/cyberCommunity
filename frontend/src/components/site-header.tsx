@@ -104,10 +104,18 @@ export function SiteHeader({
                 </span>
               </Link>
               <button
-                onClick={() => void signout()}
+                onClick={() => void signout("here")}
                 className="htb-button htb-button-ghost"
+                title="leave this app; the account stays signed in elsewhere"
               >
                 Sign out
+              </button>
+              <button
+                onClick={() => void signout("all")}
+                className="htb-button htb-button-ghost hidden sm:inline-flex text-htb-text-dim"
+                title="remove this account from every app"
+              >
+                everywhere
               </button>
             </>
           ) : (

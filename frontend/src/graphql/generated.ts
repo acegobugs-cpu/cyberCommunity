@@ -60,6 +60,11 @@ export type LessonSummaryFragment = { id: string, moduleId: string, title: strin
 
 export type CourseTreeFragment = { createdAt: string, id: string, slug: string, title: string, description: string | null, difficulty: Difficulty, tags: Array<string>, status: CourseStatus, estimatedMinutes: number, updatedAt: string, modules: Array<{ id: string, courseId: string, title: string, descriptionMd: string | null, position: number, lessons: Array<{ id: string, moduleId: string, title: string, type: LessonType, position: number, estimatedMinutes: number }> }> };
 
+export type MeQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type MeQuery = { me: { userId: string, role: string, canAuthor: boolean } };
+
 export type CatalogueQueryVariables = Exact<{
   difficulty?: Difficulty | null | undefined;
   tag?: string | null | undefined;

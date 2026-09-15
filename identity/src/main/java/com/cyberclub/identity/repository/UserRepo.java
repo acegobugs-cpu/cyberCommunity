@@ -1,14 +1,13 @@
 package com.cyberclub.identity.repository;
 
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Repository;
-
+import java.sql.Timestamp;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.List;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.stereotype.Repository;
 
 import com.cyberclub.identity.api.dtos.MemberRecord;
 import com.cyberclub.identity.api.dtos.User;
@@ -17,119 +16,77 @@ import com.cyberclub.identity.api.dtos.UserRecord;
 @Repository
 public class UserRepo {
 
-    private final JdbcTemplate jdbcTemplate;
+    private static final String MEMBER_SQL = """
+        SELECT s.service_name, u.username, u.email, m.role, m.created_at
+        FROM identity.memberships m
+        JOIN identity.users u ON m.user_id = u.id
+        JOIN identity.services s ON m.service_id = s.id
+        WHERE s.service_name = ?
+        """;
 
-    public UserRepo(JdbcTemplate jdbcTemplate){
-        this.jdbcTemplate = jdbcTemplate;
+    private static final RowMapper<User> USER = (rs, i) -> new User(
+        rs.getObject("id", UUID.class),
+        rs.getString("username"),
+        rs.getString("email"),
+        rs.getString("password"),
+        rs.getTimestamp("created_at").toInstant()
+    );
+
+    private static final RowMapper<UserRecord> RECORD = (rs, i) -> new UserRecord(
+        rs.getObject("id", UUID.class),
+        rs.getString("username"),
+        rs.getString("email"),
+        rs.getTimestamp("created_at").toInstant()
+    );
+
+    private static final RowMapper<MemberRecord> MEMBER = (rs, i) -> new MemberRecord(
+        rs.getString("service_name"),
+        rs.getString("username"),
+        rs.getString("email"),
+        rs.getString("role"),
+        rs.getTimestamp("created_at").toLocalDateTime()
+    );
+
+    private final JdbcTemplate jdbc;
+
+    public UserRepo(JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
     }
 
-    public void save(User user){
-        jdbcTemplate.update(
-            """
+    public UserRecord save(User user) {
+        return jdbc.queryForObject("""
             INSERT INTO identity.users (id, email, username, password, created_at)
             VALUES (?, ?, ?, ?, ?)
-            """,
-            user.id(),
-            user.email(),
-            user.username(),
-            user.password(),
-            java.sql.Timestamp.from(user.createdAt())
-        );
-    };
-
-    public Optional<User> findByEmail(String email) {
-        return jdbcTemplate.query(
-            """
-            SELECT id, email, username, password, created_at
-            FROM identity.users
-            WHERE email = ?
-            """,
-            rs -> rs.next() ? Optional.of(mapRow(rs)) : Optional.empty(),
-            email
-        );
+            RETURNING id, username, email, created_at
+            """, RECORD, user.id(), user.email(), user.username(), user.password(), Timestamp.from(user.createdAt()));
     }
 
-    private User mapRow(ResultSet rs) throws SQLException {
-        return new User(
-            rs.getObject("id", UUID.class),
-            rs.getString("email"),
-            rs.getString("username"),
-            rs.getString("password"),
-            rs.getTimestamp("created_at").toInstant()
-        );
+    public Optional<User> findByEmail(String email) {
+        return jdbc.query("SELECT id, username, email, password, created_at FROM identity.users WHERE email = ?", USER, email)
+            .stream().findFirst();
     }
 
     public boolean existsByEmail(String email) {
-        Integer count = jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM identity.users WHERE email = ?",
-            Integer.class,
-            email
-        );
-        return count != null && count > 0;
+        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM identity.users WHERE email = ?", Integer.class, email);
+        return n != null && n > 0;
     }
 
-    
-    private final RowMapper<UserRecord> mapper = (rs, rowNum) -> 
-        new UserRecord(
-            UUID.fromString(rs.getString("id")),
-            rs.getString("username"),
-            rs.getString("email"),
-            rs.getTimestamp("created_at").toLocalDateTime()
-        );
-
-    public Optional<UserRecord> findById (UUID id){
-        var sql = """
-                    SELECT * FROM identity.users WHERE id = ?
-                  """;
-        
-        return jdbcTemplate
-                .query(sql, mapper, id)
-                .stream()
-                .findFirst();
+    public Optional<UserRecord> findById(UUID id) {
+        return jdbc.query("SELECT id, username, email, created_at FROM identity.users WHERE id = ?", RECORD, id)
+            .stream().findFirst();
     }
 
-    public List<UserRecord> allUsers(){
-        var sql = """
-                SELECT * FROM identity.users
-                """;
-        
-        RowMapper<UserRecord> mapper = (rs, rowNum) -> 
-        new UserRecord(
-            UUID.fromString(rs.getString("id")),
-            rs.getString("username"),
-            rs.getString("email"),
-            rs.getTimestamp("created_at").toLocalDateTime()
-        );
-        
-        return jdbcTemplate
-                .query(sql, mapper);
+    public List<UserRecord> allUsers() {
+        return jdbc.query("SELECT id, username, email, created_at FROM identity.users", RECORD);
     }
 
-    public List<MemberRecord> findAll(String serviceName){
-        var sql = """
-                SELECT 
-                    t.service_name,
-                    u.username, 
-                    u.email, 
-                    m.role,
-                    m.created_at
-                FROM identity.memberships m
-                JOIN identity.users u ON m.user_id = u.id
-                JOIN identity.services t ON m.service_id = t.id
-                WHERE t.service_name = ?
-                """;
-
-        RowMapper<MemberRecord> memberMapper = (rs, rowNum) -> 
-            new MemberRecord(
-                rs.getString("service_name"),
-                rs.getString("username"),
-                rs.getString("email"),
-                rs.getString("role"),
-                rs.getTimestamp("created_at").toLocalDateTime()
-            );
-
-        return jdbcTemplate
-                .query(sql, memberMapper, serviceName);
+    /** All members of a service. */
+    public List<MemberRecord> findMembers(String serviceName) {
+        return jdbc.query(MEMBER_SQL, MEMBER, serviceName);
     }
 
+    /** One member of a service; empty when the user is not a member. */
+    public Optional<MemberRecord> findMember(String serviceName, UUID userId) {
+        return jdbc.query(MEMBER_SQL + " AND u.id = ?", MEMBER, serviceName, userId).stream().findFirst();
+    }
 }

@@ -1,66 +1,68 @@
 package com.cyberclub.identity.repository;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.List;
 
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 import com.cyberclub.identity.api.dtos.IsMemberResponse;
 
 @Repository
 public class MembershipRepo {
-    
-    private final JdbcTemplate jdbcTemplate;
 
-    public MembershipRepo(JdbcTemplate jdbcTemplate){
-        this.jdbcTemplate = jdbcTemplate;
+    private static final String DEFAULT_ROLE = "USER";
+
+    private final JdbcTemplate jdbc;
+
+    public MembershipRepo(JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
     }
 
-    public void createDefaultMembership(UUID userId) {
-        // 1. Get all service IDs
-        List<UUID> serviceIds = jdbcTemplate.query(
-            "SELECT id FROM identity.services", 
-            (rs, rowNum) -> UUID.fromString(rs.getString("id"))
-        );
-
-        // 2. Batch insert using the logic from our previous step
-        var sql = "INSERT INTO identity.memberships (id, user_id, service_id, role) VALUES (?, ?, ?, 'USER')";
-        
-        List<Object[]> batchArgs = serviceIds.stream()
-            .map(sId -> new Object[] { UUID.randomUUID(), userId, sId })
-            .toList();
-
-        jdbcTemplate.batchUpdate(sql, batchArgs);
-}
-
-    private final RowMapper<IsMemberResponse> mapper = (rs, n) ->
-        new IsMemberResponse(
-            true,
-            rs.getString("role")
-        );
-
-    public Optional<IsMemberResponse> findMembership(UUID id, String serviceName){
-        var sql = """
-                SELECT m.role FROM identity.memberships m
-                JOIN identity.services s ON m.service_id = s.id
-                WHERE m.user_id = ? AND s.service_name = ?
-                """;
-
-        return jdbcTemplate
-                .query(sql, mapper, id, serviceName)
-                .stream()
-                .findFirst();
+    /**
+     * Idempotent join: creates a USER membership if none exists and returns the
+     * (possibly pre-existing) role. Empty when the service does not exist.
+     */
+    public Optional<String> join(UUID userId, String serviceName) {
+        jdbc.update("""
+            INSERT INTO identity.memberships (id, user_id, service_id, role)
+            SELECT ?, ?, s.id, ?
+            FROM identity.services s
+            WHERE s.service_name = ?
+            ON CONFLICT (user_id, service_id) DO NOTHING
+            """, UUID.randomUUID(), userId, DEFAULT_ROLE, serviceName);
+        return findRole(userId, serviceName);
     }
 
-    public boolean serviceExists (String serviceName){
-        var sql = """
-                SELECT COUNT(*) FROM identity.services WHERE service_name = ?
-                """;
+    public Optional<String> findRole(UUID userId, String serviceName) {
+        return jdbc.query("""
+            SELECT m.role FROM identity.memberships m
+            JOIN identity.services s ON m.service_id = s.id
+            WHERE m.user_id = ? AND s.service_name = ?
+            """, (rs, i) -> rs.getString("role"), userId, serviceName).stream().findFirst();
+    }
 
-        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, serviceName);
-        return count != null && count > 0;
+    /** serviceName → role for every service the user has joined. */
+    public Map<String, String> findMemberships(UUID userId) {
+        Map<String, String> out = new LinkedHashMap<>();
+        jdbc.query("""
+            SELECT s.service_name, m.role
+            FROM identity.memberships m
+            JOIN identity.services s ON m.service_id = s.id
+            WHERE m.user_id = ?
+            ORDER BY s.service_name
+            """, rs -> { out.put(rs.getString("service_name"), rs.getString("role")); }, userId);
+        return out;
+    }
+
+    public Optional<IsMemberResponse> findMembership(UUID userId, String serviceName) {
+        return findRole(userId, serviceName).map(role -> new IsMemberResponse(true, role));
+    }
+
+    public boolean serviceExists(String serviceName) {
+        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM identity.services WHERE service_name = ?", Integer.class, serviceName);
+        return n != null && n > 0;
     }
 }

@@ -10,6 +10,8 @@ import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
 
+import com.cyberclub.learn.context.UserContext;
+import com.cyberclub.learn.dtos.AuthResult;
 import com.cyberclub.learn.dtos.domain.Course;
 import com.cyberclub.learn.dtos.domain.Difficulty;
 import com.cyberclub.learn.dtos.domain.Module;
@@ -33,6 +35,15 @@ public class CourseResolver {
     }
 
     // ---------- queries ----------
+
+    /** Who am I in learn? Used by the frontend to gate authoring UI. */
+    @QueryMapping
+    public Me me() {
+        AuthResult r = auth.require(Policies.LEARNER);
+        return new Me(UserContext.getUserId(), r.role(), "ADMIN".equals(r.role()) || "AUTHOR".equals(r.role()));
+    }
+
+    public record Me(UUID userId, String role, boolean canAuthor) {}
 
     @QueryMapping
     public List<Course> courses(@Argument Difficulty difficulty, @Argument String tag, @Argument String search) {

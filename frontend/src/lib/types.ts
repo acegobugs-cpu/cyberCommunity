@@ -12,11 +12,22 @@ export interface AuthResponse {
   expiresIn: number;
 }
 
-/** What the BFF returns to the browser after signin/signup or on /api/session. The JWT itself never leaves the server. */
+/** Non-sensitive view of a signed-in account (shared across apps). */
+export interface AccountSummary {
+  id: string;
+  email: string;
+  username: string;
+  /** epoch seconds */
+  exp: number;
+}
+
+/** What the BFF returns to the browser after signin/signup/join or on /api/session. The JWT itself never leaves the server. */
 export interface SessionResponse {
   user: User;
   expiresIn: number;
   portalRole?: string | null;
+  /** Every account signed in on this browser, including `user`. */
+  accounts: AccountSummary[];
 }
 
 export interface SignupRequest {

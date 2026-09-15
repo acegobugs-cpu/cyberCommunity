@@ -53,7 +53,15 @@ type Lesson {
 
 # ---------- queries (LEARNER; unpublished content visible to CONTENT_AUTHOR only) ----------
 
+"The caller's standing in the learn service."
+type Me {
+  userId: ID!
+  role: String!
+  canAuthor: Boolean!
+}
+
 type Query {
+  me: Me!
   courses(difficulty: Difficulty, tag: String, search: String): [Course!]!
   course(slug: String!): Course
   "Author editor entry point; also works for learners on published courses."

@@ -1,6 +1,7 @@
 package com.cyberclub.identity.user;
 
 import com.cyberclub.identity.api.dtos.User;
+import com.cyberclub.identity.api.dtos.UserRecord;
 import com.cyberclub.identity.services.JwtTokenService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -26,7 +27,7 @@ class JwtTokenTest {
             Instant.now()
         );
 
-        String token = service.generate(user);
+        String token = service.generate(new UserRecord(user.id(), user.username(), user.email(), null, null));
 
         Claims claims = Jwts.parserBuilder()
             .setSigningKey(TestJwtFactory.key())
