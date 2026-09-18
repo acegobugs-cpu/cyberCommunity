@@ -2,16 +2,18 @@ import { gatewayFetch } from "@/lib/gateway";
 import { unwrap, type GraphQlResponse } from "@/lib/learn/graphql";
 import {
   CATALOGUE,
-  COURSE_BY_ID,
-  COURSE_BY_SLUG,
+  PATH_BY_ID,
+  PATH_BY_SLUG,
   LESSON_BY_ID,
+  MY_ENROLLMENTS,
 } from "@/graphql/learn-documents";
 import type {
   CatalogueQuery,
   CatalogueQueryVariables,
-  CourseByIdQuery,
-  CourseBySlugQuery,
+  PathByIdQuery,
+  PathBySlugQuery,
   LessonByIdQuery,
+  MyEnrollmentsQuery,
 } from "@/graphql/generated";
 
 /**
@@ -36,28 +38,28 @@ export async function learnQuery<T, V extends object = Record<string, never>>(
 }
 
 /** Catalogue; returns [] when signed out or the gateway is down so the page can still render. */
-export async function getCatalogue( variables: CatalogueQueryVariables = {} ): Promise<{ courses: CatalogueQuery["courses"]; error: string | null }> {
+export async function getCatalogue( variables: CatalogueQueryVariables = {} ): Promise<{ paths: CatalogueQuery["paths"]; error: string | null }> {
   try {
     const data = await learnQuery<CatalogueQuery, CatalogueQueryVariables>(CATALOGUE, variables);
-    return { courses: data.courses, error: null };
+    return { paths: data.paths, error: null };
   } catch (err) {
-    return { courses: [], error: err instanceof Error ? err.message : "learn service unavailable" };
+    return { paths: [], error: err instanceof Error ? err.message : "learn service unavailable" };
   }
 }
 
-export async function getCourseBySlug(slug: string) {
+export async function getPathBySlug(slug: string) {
   try {
-    const data = await learnQuery<CourseBySlugQuery, { slug: string }>(COURSE_BY_SLUG, { slug });
-    return data.course;
+    const data = await learnQuery<PathBySlugQuery, { slug: string }>(PATH_BY_SLUG, { slug });
+    return data.path;
   } catch {
     return null;
   }
 }
 
-export async function getCourseById(id: string) {
+export async function getPathById(id: string) {
   try {
-    const data = await learnQuery<CourseByIdQuery, { id: string }>(COURSE_BY_ID, { id });
-    return data.courseById;
+    const data = await learnQuery<PathByIdQuery, { id: string }>(PATH_BY_ID, { id });
+    return data.pathById;
   } catch {
     return null;
   }
@@ -69,5 +71,15 @@ export async function getLesson(id: string) {
     return data.lesson;
   } catch {
     return null;
+  }
+}
+
+/** Paths the caller is enrolled in (in-progress first). [] when signed out or unavailable. */
+export async function getMyEnrollments(): Promise<MyEnrollmentsQuery["myEnrollments"]> {
+  try {
+    const data = await learnQuery<MyEnrollmentsQuery>(MY_ENROLLMENTS, {});
+    return data.myEnrollments;
+  } catch {
+    return [];
   }
 }

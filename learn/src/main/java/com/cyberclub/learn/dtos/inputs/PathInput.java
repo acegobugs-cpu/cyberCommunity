@@ -5,7 +5,7 @@ import java.util.UUID;
 
 import com.cyberclub.learn.dtos.domain.Difficulty;
 
-public record CourseInput(
+public record PathInput(
     UUID id,
     String title,
     String slug,

@@ -16,7 +16,8 @@ import com.cyberclub.learn.dtos.domain.Module;
 import com.cyberclub.learn.dtos.inputs.LessonInput;
 import com.cyberclub.learn.exceptions.BadRequestException;
 import com.cyberclub.learn.exceptions.NotFoundException;
-import com.cyberclub.learn.repositories.CourseRepo;
+import com.cyberclub.learn.repositories.PathRepo;
+import com.cyberclub.learn.repositories.ProgressRepo;
 import com.cyberclub.learn.repositories.LessonRepo;
 import com.cyberclub.learn.repositories.ModuleRepo;
 
@@ -25,20 +26,22 @@ public class LessonService {
 
     private final LessonRepo lessonRepo;
     private final ModuleRepo moduleRepo;
-    private final CourseRepo courseRepo;
+    private final PathRepo pathRepo;
+    private final ProgressRepo progressRepo;
 
-    public LessonService(LessonRepo lessonRepo, ModuleRepo moduleRepo, CourseRepo courseRepo) {
+    public LessonService(LessonRepo lessonRepo, ModuleRepo moduleRepo, PathRepo pathRepo, ProgressRepo progressRepo) {
+        this.progressRepo = progressRepo;
         this.lessonRepo = lessonRepo;
         this.moduleRepo = moduleRepo;
-        this.courseRepo = courseRepo;
+        this.pathRepo = pathRepo;
     }
 
-    /** Null when missing, or when the owning course is not published and the caller is a learner. */
+    /** Null when missing, or when the owning path is not published and the caller is a learner. */
     public Lesson byId(UUID id, boolean includeUnpublished) {
         Lesson lesson = lessonRepo.findById(id).orElse(null);
         if (lesson == null) return null;
         if (includeUnpublished) return lesson;
-        return lessonRepo.courseStatusOf(id).filter("PUBLISHED"::equals).isPresent() ? lesson : null;
+        return lessonRepo.pathStatusOf(id).filter("PUBLISHED"::equals).isPresent() ? lesson : null;
     }
 
     public Map<Module, List<Lesson>> forModules(List<Module> modules) {
@@ -55,7 +58,7 @@ public class LessonService {
 
     @Transactional
     public Lesson upsert(LessonInput in) {
-        String title = CourseService.required(in.title(), "title");
+        String title = PathService.required(in.title(), "title");
         LessonType type = in.type() == null ? LessonType.READING : in.type();
         if (type == LessonType.EXERCISE) {
             throw new BadRequestException("EXERCISE lessons are not available yet");
@@ -79,7 +82,8 @@ public class LessonService {
             }
             saved = lessonRepo.update(existing.id(), title, type, in.contentMd(), in.videoUrl(), minutes, in.position());
         }
-        courseRepo.refreshEstimatedMinutes(module.courseId());
+        pathRepo.refreshEstimatedMinutes(module.pathId());
+        if (in.id() == null) progressRepo.recomputeAll(module.id()); // new lesson changes everyone's ratio
         return saved;
     }
 
@@ -95,7 +99,8 @@ public class LessonService {
         boolean deleted = lessonRepo.delete(id);
         List<UUID> rest = lessonRepo.findByModuleIds(List.of(l.moduleId())).stream().map(Lesson::id).toList();
         if (!rest.isEmpty()) lessonRepo.reorder(rest);
-        moduleRepo.findById(l.moduleId()).ifPresent(m -> courseRepo.refreshEstimatedMinutes(m.courseId()));
+        moduleRepo.findById(l.moduleId()).ifPresent(m -> pathRepo.refreshEstimatedMinutes(m.pathId()));
+        progressRepo.recomputeAll(l.moduleId());
         return deleted;
     }
 }

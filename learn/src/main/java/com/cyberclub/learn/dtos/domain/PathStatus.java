@@ -1,6 +1,6 @@
 package com.cyberclub.learn.dtos.domain;
 
-public enum CourseStatus {
+public enum PathStatus {
     DRAFT,
     PUBLISHED,
     ARCHIVED

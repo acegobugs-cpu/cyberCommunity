@@ -12,7 +12,7 @@ export async function getPortalInfo(
   try {
     const res = await gatewayFetch("/portal/info", {
       service: "portal",
-      token,
+      headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) return null;
     return (await res.json()) as PortalInfo;

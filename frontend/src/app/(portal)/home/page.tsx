@@ -9,12 +9,18 @@ import { ActivityFeed } from "@/components/activity-feed";
 import { useRouter } from "next/navigation";
 import type { EnrichedMember } from "@/lib/enriched-types";
 import { useAreaUrl } from "@/lib/use-area-url";
+import { learnMutate } from "@/lib/learn/client";
+import { MY_ENROLLMENTS } from "@/graphql/learn-documents";
+import type { MyEnrollmentsQuery } from "@/graphql/generated";
+
+type ContinueTarget = { title: string; progress: number; path: string };
 
 export default function DashboardPage() {
   const router = useRouter();
   const areaHref = useAreaUrl();
   const { user, portalRole, loading: authLoading } = useAuth();
   const [member, setMember] = useState<EnrichedMember | null>(null);
+  const [resume, setResume] = useState<ContinueTarget | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,6 +31,20 @@ export default function DashboardPage() {
     }
 
     let active = true;
+    // Learn is optional here: the user may not be a member of learn (yet).
+    learnMutate<MyEnrollmentsQuery, Record<string, never>>(MY_ENROLLMENTS, {})
+      .then((d) => {
+        if (!active) return;
+        const p = d.myEnrollments.find((x) => x.enrollment?.status === "ENROLLED");
+        if (!p?.enrollment) return;
+        const next = p.enrollment.nextLessonId;
+        setResume({
+          title: p.title,
+          progress: p.enrollment.progress,
+          path: next ? `/paths/${p.slug}/lessons/${next}` : `/paths/${p.slug}`,
+        });
+      })
+      .catch(() => {});
     (async () => {
       try {
         const members = await api.get<EnrichedMember[]>("/api/members");
@@ -123,9 +143,9 @@ export default function DashboardPage() {
             </h2>
             <div className="grid gap-3 sm:grid-cols-2">
               <ActionCard
-                href={areaHref("learn")}
-                title="Continue learning"
-                desc="Resume 'Practical Binary Exploitation' · module 4 of 12"
+                href={resume ? areaHref("learn", resume.path) : areaHref("learn", "/dash")}
+                title={resume ? "Continue learning" : "Start learning"}
+                desc={resume ? `Resume '${resume.title}' · ${Math.round(resume.progress * 100)}% done` : "Browse the learning paths"}
                 tag="learn"
               />
               <ActionCard

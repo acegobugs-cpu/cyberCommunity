@@ -12,25 +12,25 @@ import org.springframework.stereotype.Controller;
 
 import com.cyberclub.learn.context.UserContext;
 import com.cyberclub.learn.dtos.AuthResult;
-import com.cyberclub.learn.dtos.domain.Course;
+import com.cyberclub.learn.dtos.domain.Path;
 import com.cyberclub.learn.dtos.domain.Difficulty;
 import com.cyberclub.learn.dtos.domain.Module;
-import com.cyberclub.learn.dtos.inputs.CourseInput;
+import com.cyberclub.learn.dtos.inputs.PathInput;
 import com.cyberclub.learn.security.Policies;
 import com.cyberclub.learn.services.AuthService;
-import com.cyberclub.learn.services.CourseService;
+import com.cyberclub.learn.services.PathService;
 import com.cyberclub.learn.services.ModuleService;
 
 @Controller
-public class CourseResolver {
+public class PathResolver {
 
     private final AuthService auth;
-    private final CourseService courses;
+    private final PathService paths;
     private final ModuleService modules;
 
-    public CourseResolver(AuthService auth, CourseService courses, ModuleService modules) {
+    public PathResolver(AuthService auth, PathService paths, ModuleService modules) {
         this.auth = auth;
-        this.courses = courses;
+        this.paths = paths;
         this.modules = modules;
     }
 
@@ -46,53 +46,53 @@ public class CourseResolver {
     public record Me(UUID userId, String role, boolean canAuthor) {}
 
     @QueryMapping
-    public List<Course> courses(@Argument Difficulty difficulty, @Argument String tag, @Argument String search) {
+    public List<Path> paths(@Argument Difficulty difficulty, @Argument String tag, @Argument String search) {
         boolean drafts = Access.learnerSeesDrafts(auth);
-        return courses.list(difficulty, tag, search, drafts);
+        return paths.list(difficulty, tag, search, drafts);
     }
 
     @QueryMapping
-    public Course course(@Argument String slug) {
+    public Path path(@Argument String slug) {
         boolean drafts = Access.learnerSeesDrafts(auth);
-        return courses.bySlug(slug, drafts);
+        return paths.bySlug(slug, drafts);
     }
 
     @QueryMapping
-    public Course courseById(@Argument UUID id) {
+    public Path pathById(@Argument UUID id) {
         boolean drafts = Access.learnerSeesDrafts(auth);
-        return courses.byId(id, drafts);
+        return paths.byId(id, drafts);
     }
 
     /** Parent resolvers already authorized and filtered; no extra identity call here. */
-    @BatchMapping(typeName = "Course", field = "modules")
-    public Map<Course, List<Module>> modules(List<Course> parents) {
-        return modules.forCourses(parents);
+    @BatchMapping(typeName = "Path", field = "modules")
+    public Map<Path, List<Module>> modules(List<Path> parents) {
+        return modules.forPaths(parents);
     }
 
     // ---------- author mutations ----------
 
     @MutationMapping
-    public Course upsertCourse(@Argument CourseInput input) {
+    public Path upsertPath(@Argument PathInput input) {
         auth.require(Policies.CONTENT_AUTHOR);
-        return courses.upsert(input);
+        return paths.upsert(input);
     }
 
     @MutationMapping
-    public Course publishCourse(@Argument UUID id, @Argument Boolean published) {
+    public Path publishPath(@Argument UUID id, @Argument Boolean published) {
         auth.require(Policies.CONTENT_AUTHOR);
-        return courses.publish(id, published == null || published);
+        return paths.publish(id, published == null || published);
     }
 
     @MutationMapping
-    public Course archiveCourse(@Argument UUID id) {
+    public Path archivePath(@Argument UUID id) {
         auth.require(Policies.CONTENT_AUTHOR);
-        return courses.archive(id);
+        return paths.archive(id);
     }
 
     @MutationMapping
-    public Course reorderModules(@Argument UUID courseId, @Argument List<UUID> orderedIds) {
+    public Path reorderModules(@Argument UUID pathId, @Argument List<UUID> orderedIds) {
         auth.require(Policies.CONTENT_AUTHOR);
-        modules.reorder(courseId, orderedIds);
-        return courses.byId(courseId, true);
+        modules.reorder(pathId, orderedIds);
+        return paths.byId(pathId, true);
     }
 }

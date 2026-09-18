@@ -10,93 +10,98 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.cyberclub.learn.context.UserContext;
-import com.cyberclub.learn.dtos.domain.Course;
-import com.cyberclub.learn.dtos.domain.CourseStatus;
+import com.cyberclub.learn.dtos.domain.Path;
+import com.cyberclub.learn.dtos.domain.PathStatus;
 import com.cyberclub.learn.dtos.domain.Difficulty;
-import com.cyberclub.learn.dtos.inputs.CourseInput;
+import com.cyberclub.learn.dtos.inputs.PathInput;
 import com.cyberclub.learn.exceptions.BadRequestException;
 import com.cyberclub.learn.exceptions.NotFoundException;
-import com.cyberclub.learn.repositories.CourseRepo;
+import com.cyberclub.learn.repositories.PathRepo;
 import com.cyberclub.learn.repositories.ModuleRepo;
 
 @Service
-public class CourseService {
+public class PathService {
 
-    private final CourseRepo courseRepo;
+    private final PathRepo pathRepo;
     private final ModuleRepo moduleRepo;
 
-    public CourseService(CourseRepo courseRepo, ModuleRepo moduleRepo) {
-        this.courseRepo = courseRepo;
+    public PathService(PathRepo pathRepo, ModuleRepo moduleRepo) {
+        this.pathRepo = pathRepo;
         this.moduleRepo = moduleRepo;
     }
 
     // ---------- reads ----------
 
-    public List<Course> list(Difficulty difficulty, String tag, String search, boolean includeUnpublished) {
-        return courseRepo.find(difficulty, tag, search, includeUnpublished);
+    public List<Path> list(Difficulty difficulty, String tag, String search, boolean includeUnpublished) {
+        return pathRepo.find(difficulty, tag, search, includeUnpublished);
     }
 
-    /** Returns null (not an error) when the course is missing or hidden from the caller. */
-    public Course bySlug(String slug, boolean includeUnpublished) {
-        return courseRepo.findBySlug(slug).filter(c -> visible(c, includeUnpublished)).orElse(null);
+    /** Returns null (not an error) when the path is missing or hidden from the caller. */
+    public Path bySlug(String slug, boolean includeUnpublished) {
+        return pathRepo.findBySlug(slug).filter(c -> visible(c, includeUnpublished)).orElse(null);
     }
 
-    public Course byId(UUID id, boolean includeUnpublished) {
-        return courseRepo.findById(id).filter(c -> visible(c, includeUnpublished)).orElse(null);
+    public Path byId(UUID id, boolean includeUnpublished) {
+        return pathRepo.findById(id).filter(c -> visible(c, includeUnpublished)).orElse(null);
     }
 
-    private static boolean visible(Course c, boolean includeUnpublished) {
-        return includeUnpublished || c.status() == CourseStatus.PUBLISHED;
+    /** id → path; enrolled paths stay visible to their learner even after unpublishing. */
+    public java.util.Map<UUID, Path> byIds(List<UUID> ids) {
+        return pathRepo.findByIds(ids).stream().collect(java.util.stream.Collectors.toMap(Path::id, p -> p));
+    }
+
+    private static boolean visible(Path c, boolean includeUnpublished) {
+        return includeUnpublished || c.status() == PathStatus.PUBLISHED;
     }
 
     // ---------- author writes ----------
 
     @Transactional
-    public Course upsert(CourseInput in) {
+    public Path upsert(PathInput in) {
         String title = required(in.title(), "title");
         Difficulty difficulty = in.difficulty() == null ? Difficulty.BEGINNER : in.difficulty();
         List<String> tags = in.tags() == null ? List.of() : in.tags().stream().map(String::trim).filter(t -> !t.isEmpty()).distinct().toList();
 
         if (in.id() == null) {
             String slug = in.slug() == null || in.slug().isBlank() ? slugify(title) : validSlug(in.slug());
-            if (courseRepo.slugTaken(slug, null)) {
+            if (pathRepo.slugTaken(slug, null)) {
                 throw new BadRequestException("slug already in use: " + slug);
             }
             try {
-                return courseRepo.insert(slug, title, in.description(), difficulty, tags, UserContext.getUserId());
+                return pathRepo.insert(slug, title, in.description(), difficulty, tags, UserContext.getUserId());
             } catch (DuplicateKeyException e) {
                 throw new BadRequestException("slug already in use: " + slug);
             }
         }
 
-        Course existing = courseRepo.findById(in.id()).orElseThrow(() -> new NotFoundException("course not found"));
+        Path existing = pathRepo.findById(in.id()).orElseThrow(() -> new NotFoundException("path not found"));
         String slug = in.slug() == null || in.slug().isBlank() ? existing.slug() : validSlug(in.slug());
-        if (courseRepo.slugTaken(slug, existing.id())) {
+        if (pathRepo.slugTaken(slug, existing.id())) {
             throw new BadRequestException("slug already in use: " + slug);
         }
         try {
-            return courseRepo.update(existing.id(), slug, title, in.description(), difficulty, tags);
+            return pathRepo.update(existing.id(), slug, title, in.description(), difficulty, tags);
         } catch (DuplicateKeyException e) {
             throw new BadRequestException("slug already in use: " + slug);
         }
     }
 
     @Transactional
-    public Course publish(UUID id, boolean published) {
-        Course c = courseRepo.findById(id).orElseThrow(() -> new NotFoundException("course not found"));
-        if (c.status() == CourseStatus.ARCHIVED) {
-            throw new BadRequestException("archived courses cannot be published");
+    public Path publish(UUID id, boolean published) {
+        Path c = pathRepo.findById(id).orElseThrow(() -> new NotFoundException("path not found"));
+        if (c.status() == PathStatus.ARCHIVED) {
+            throw new BadRequestException("archived paths cannot be published");
         }
-        if (published && moduleRepo.idsForCourse(id).isEmpty()) {
-            throw new BadRequestException("a course needs at least one module before it can be published");
+        if (published && moduleRepo.idsForPath(id).isEmpty()) {
+            throw new BadRequestException("a path needs at least one module before it can be published");
         }
-        return courseRepo.setStatus(id, published ? CourseStatus.PUBLISHED : CourseStatus.DRAFT);
+        return pathRepo.setStatus(id, published ? PathStatus.PUBLISHED : PathStatus.DRAFT);
     }
 
     @Transactional
-    public Course archive(UUID id) {
-        courseRepo.findById(id).orElseThrow(() -> new NotFoundException("course not found"));
-        return courseRepo.setStatus(id, CourseStatus.ARCHIVED);
+    public Path archive(UUID id) {
+        pathRepo.findById(id).orElseThrow(() -> new NotFoundException("path not found"));
+        return pathRepo.setStatus(id, PathStatus.ARCHIVED);
     }
 
     // ---------- helpers ----------
@@ -114,7 +119,7 @@ public class CourseService {
             .toLowerCase(Locale.ROOT)
             .replaceAll("[^a-z0-9]+", "-")
             .replaceAll("(^-|-$)", "");
-        return s.isEmpty() ? "course-" + UUID.randomUUID().toString().substring(0, 8) : s;
+        return s.isEmpty() ? "path-" + UUID.randomUUID().toString().substring(0, 8) : s;
     }
 
     private static String validSlug(String slug) {

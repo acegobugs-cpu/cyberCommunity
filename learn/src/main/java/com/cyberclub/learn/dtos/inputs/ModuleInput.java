@@ -4,7 +4,7 @@ import java.util.UUID;
 
 public record ModuleInput(
     UUID id,
-    UUID courseId,
+    UUID pathId,
     String title,
     String descriptionMd,
     Integer position

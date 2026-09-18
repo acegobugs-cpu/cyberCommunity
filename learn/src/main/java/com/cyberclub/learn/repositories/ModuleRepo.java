@@ -13,7 +13,7 @@ import com.cyberclub.learn.dtos.domain.Module;
 @Repository
 public class ModuleRepo {
 
-    private static final String COLUMNS = "id, course_id, title, description_md, position, created_at, updated_at";
+    private static final String COLUMNS = "id, path_id, title, description_md, position, created_at, updated_at";
 
     private final JdbcTemplate jdbc;
 
@@ -23,7 +23,7 @@ public class ModuleRepo {
 
     static final RowMapper<Module> MAPPER = (rs, i) -> new Module(
         UUID.fromString(rs.getString("id")),
-        UUID.fromString(rs.getString("course_id")),
+        UUID.fromString(rs.getString("path_id")),
         rs.getString("title"),
         rs.getString("description_md"),
         rs.getInt("position"),
@@ -35,32 +35,32 @@ public class ModuleRepo {
         return jdbc.query("SELECT " + COLUMNS + " FROM modules WHERE id = ?", MAPPER, id).stream().findFirst();
     }
 
-    public List<Module> findByCourseId(UUID courseId) {
-        return jdbc.query("SELECT " + COLUMNS + " FROM modules WHERE course_id = ? ORDER BY position", MAPPER, courseId);
+    public List<Module> findByPathId(UUID pathId) {
+        return jdbc.query("SELECT " + COLUMNS + " FROM modules WHERE path_id = ? ORDER BY position", MAPPER, pathId);
     }
 
-    /** Batch load for {@code Course.modules}. */
-    public List<Module> findByCourseIds(List<UUID> courseIds) {
-        if (courseIds.isEmpty()) return List.of();
-        return jdbc.query("SELECT " + COLUMNS + " FROM modules WHERE course_id = ANY(?) ORDER BY course_id, position",
-            MAPPER, (Object) courseIds.toArray(new UUID[0]));
+    /** Batch load for {@code Path.modules}. */
+    public List<Module> findByPathIds(List<UUID> pathIds) {
+        if (pathIds.isEmpty()) return List.of();
+        return jdbc.query("SELECT " + COLUMNS + " FROM modules WHERE path_id = ANY(?) ORDER BY path_id, position",
+            MAPPER, (Object) pathIds.toArray(new UUID[0]));
     }
 
-    public List<UUID> idsForCourse(UUID courseId) {
-        return jdbc.queryForList("SELECT id FROM modules WHERE course_id = ?", UUID.class, courseId);
+    public List<UUID> idsForPath(UUID pathId) {
+        return jdbc.queryForList("SELECT id FROM modules WHERE path_id = ?", UUID.class, pathId);
     }
 
-    public int nextPosition(UUID courseId) {
-        Integer max = jdbc.queryForObject("SELECT COALESCE(MAX(position), 0) FROM modules WHERE course_id = ?", Integer.class, courseId);
+    public int nextPosition(UUID pathId) {
+        Integer max = jdbc.queryForObject("SELECT COALESCE(MAX(position), 0) FROM modules WHERE path_id = ?", Integer.class, pathId);
         return (max == null ? 0 : max) + 1;
     }
 
-    public Module insert(UUID courseId, String title, String descriptionMd, int position) {
+    public Module insert(UUID pathId, String title, String descriptionMd, int position) {
         return jdbc.queryForObject("""
-            INSERT INTO modules (course_id, title, description_md, position)
+            INSERT INTO modules (path_id, title, description_md, position)
             VALUES (?, ?, ?, ?)
             RETURNING %s
-            """.formatted(COLUMNS), MAPPER, courseId, title, descriptionMd, position);
+            """.formatted(COLUMNS), MAPPER, pathId, title, descriptionMd, position);
     }
 
     public Module update(UUID id, String title, String descriptionMd, Integer position) {

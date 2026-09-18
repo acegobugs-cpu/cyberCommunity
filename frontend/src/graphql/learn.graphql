@@ -1,6 +1,15 @@
 # ---------- fragments ----------
 
-fragment CourseCard on Course {
+fragment EnrollmentFields on Enrollment {
+  pathId
+  status
+  progress
+  enrolledAt
+  completedAt
+  nextLessonId
+}
+
+fragment PathCard on Path {
   id
   slug
   title
@@ -10,6 +19,9 @@ fragment CourseCard on Course {
   status
   estimatedMinutes
   updatedAt
+  enrollment {
+    ...EnrollmentFields
+  }
 }
 
 fragment LessonSummary on Lesson {
@@ -19,17 +31,23 @@ fragment LessonSummary on Lesson {
   type
   position
   estimatedMinutes
+  completed
 }
 
-fragment CourseTree on Course {
-  ...CourseCard
+fragment PathTree on Path {
+  ...PathCard
   createdAt
   modules {
     id
-    courseId
+    pathId
     title
     descriptionMd
     position
+    myProgress {
+      status
+      progress
+      completedAt
+    }
     lessons {
       ...LessonSummary
     }
@@ -47,20 +65,20 @@ query Me {
 }
 
 query Catalogue($difficulty: Difficulty, $tag: String, $search: String) {
-  courses(difficulty: $difficulty, tag: $tag, search: $search) {
-    ...CourseCard
+  paths(difficulty: $difficulty, tag: $tag, search: $search) {
+    ...PathCard
   }
 }
 
-query CourseBySlug($slug: String!) {
-  course(slug: $slug) {
-    ...CourseTree
+query PathBySlug($slug: String!) {
+  path(slug: $slug) {
+    ...PathTree
   }
 }
 
-query CourseById($id: ID!) {
-  courseById(id: $id) {
-    ...CourseTree
+query PathById($id: ID!) {
+  pathById(id: $id) {
+    ...PathTree
   }
 }
 
@@ -72,18 +90,45 @@ query LessonById($id: ID!) {
   }
 }
 
+query MyEnrollments {
+  myEnrollments {
+    ...PathCard
+  }
+}
+
+# ---------- learner mutations ----------
+
+mutation Enroll($pathId: ID!) {
+  enroll(pathId: $pathId) {
+    ...EnrollmentFields
+  }
+}
+
+mutation DropPath($pathId: ID!) {
+  dropPath(pathId: $pathId) {
+    ...EnrollmentFields
+  }
+}
+
+mutation CompleteLesson($lessonId: ID!) {
+  completeLesson(lessonId: $lessonId) {
+    id
+    completed
+  }
+}
+
 # ---------- author mutations ----------
 
-mutation UpsertCourse($input: CourseInput!) {
-  upsertCourse(input: $input) {
-    ...CourseCard
+mutation UpsertPath($input: PathInput!) {
+  upsertPath(input: $input) {
+    ...PathCard
   }
 }
 
 mutation UpsertModule($input: ModuleInput!) {
   upsertModule(input: $input) {
     id
-    courseId
+    pathId
     title
     descriptionMd
     position
@@ -98,8 +143,8 @@ mutation UpsertLesson($input: LessonInput!) {
   }
 }
 
-mutation ReorderModules($courseId: ID!, $orderedIds: [ID!]!) {
-  reorderModules(courseId: $courseId, orderedIds: $orderedIds) {
+mutation ReorderModules($pathId: ID!, $orderedIds: [ID!]!) {
+  reorderModules(pathId: $pathId, orderedIds: $orderedIds) {
     id
   }
 }
@@ -110,15 +155,15 @@ mutation ReorderLessons($moduleId: ID!, $orderedIds: [ID!]!) {
   }
 }
 
-mutation PublishCourse($id: ID!, $published: Boolean) {
-  publishCourse(id: $id, published: $published) {
+mutation PublishPath($id: ID!, $published: Boolean) {
+  publishPath(id: $id, published: $published) {
     id
     status
   }
 }
 
-mutation ArchiveCourse($id: ID!) {
-  archiveCourse(id: $id) {
+mutation ArchivePath($id: ID!) {
+  archivePath(id: $id) {
     id
     status
   }

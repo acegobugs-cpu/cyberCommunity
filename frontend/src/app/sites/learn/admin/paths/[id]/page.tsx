@@ -8,20 +8,20 @@ import { useAreaUrl } from "@/lib/use-area-url";
 import { learnMutate } from "@/lib/learn/client";
 import { LearnApiError } from "@/lib/learn/graphql";
 import {
-  ARCHIVE_COURSE,
-  COURSE_BY_ID,
+  ARCHIVE_PATH,
+  PATH_BY_ID,
   DELETE_LESSON,
   DELETE_MODULE,
   LESSON_BY_ID,
-  PUBLISH_COURSE,
+  PUBLISH_PATH,
   REORDER_LESSONS,
   REORDER_MODULES,
-  UPSERT_COURSE,
+  UPSERT_PATH,
   UPSERT_LESSON,
   UPSERT_MODULE,
 } from "@/graphql/learn-documents";
 import type {
-  CourseByIdQuery,
+  PathByIdQuery,
   Difficulty,
   LessonType,
   UpsertLessonMutation,
@@ -32,8 +32,8 @@ import type {
 import { MarkdownEditor } from "@/components/learn/markdown-editor";
 import { LessonTypeBadge, StatusBadge, minutes } from "@/components/learn/ui";
 
-type Course = NonNullable<CourseByIdQuery["courseById"]>;
-type Module = Course["modules"][number];
+type Path = NonNullable<PathByIdQuery["pathById"]>;
+type Module = Path["modules"][number];
 type Lesson = Module["lessons"][number];
 
 const DIFFICULTIES: Difficulty[] = ["BEGINNER", "INTERMEDIATE", "ADVANCED"];
@@ -44,19 +44,19 @@ function describe(e: unknown): string {
   return e instanceof Error ? e.message : "request failed";
 }
 
-export default function CourseEditorPage() {
+export default function PathEditorPage() {
   const { id } = useParams<{ id: string }>();
   const areaHref = useAreaUrl();
   const { user, loading: authLoading } = useAuth();
-  const [course, setCourse] = useState<Course | null>(null);
+  const [path, setPath] = useState<Path | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
-      const d = await learnMutate<CourseByIdQuery, { id: string }>(COURSE_BY_ID, { id });
-      if (!d.courseById) setError("course not found");
-      setCourse(d.courseById);
+      const d = await learnMutate<PathByIdQuery, { id: string }>(PATH_BY_ID, { id });
+      if (!d.pathById) setError("path not found");
+      setPath(d.pathById);
     } catch (e) {
       setError(describe(e));
     }
@@ -69,11 +69,11 @@ export default function CourseEditorPage() {
       return;
     }
     let active = true;
-    learnMutate<CourseByIdQuery, { id: string }>(COURSE_BY_ID, { id })
+    learnMutate<PathByIdQuery, { id: string }>(PATH_BY_ID, { id })
       .then((d) => {
         if (!active) return;
-        if (!d.courseById) setError("course not found");
-        setCourse(d.courseById);
+        if (!d.pathById) setError("path not found");
+        setPath(d.pathById);
       })
       .catch((e) => active && setError(describe(e)));
     return () => {
@@ -95,61 +95,61 @@ export default function CourseEditorPage() {
   }
 
   if (authLoading || !user) return <Centered>loading…</Centered>;
-  if (!course) return <Centered>{error ?? "loading course…"}</Centered>;
+  if (!path) return <Centered>{error ?? "loading path…"}</Centered>;
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10 w-full">
       <div className="flex items-center gap-3 mb-6 htb-mono text-xs">
         <Link href="/admin" className="text-htb-text-dim hover:text-htb-green">← content</Link>
         <span className="text-htb-text-dim">/</span>
-        <span className="text-htb-text truncate">{course.title}</span>
-        <StatusBadge value={course.status} />
-        {course.status === "PUBLISHED" && (
-          <Link href={`/courses/${course.slug}`} className="ml-auto text-htb-green">view as learner →</Link>
+        <span className="text-htb-text truncate">{path.title}</span>
+        <StatusBadge value={path.status} />
+        {path.status === "PUBLISHED" && (
+          <Link href={`/paths/${path.slug}`} className="ml-auto text-htb-green">view as learner →</Link>
         )}
       </div>
 
       {error && <Banner tone="red">! {error}</Banner>}
       {notice && <Banner tone="green">{notice}</Banner>}
 
-      <CourseMeta course={course} onSave={(input) => run("course saved", () => learnMutate(UPSERT_COURSE, { input: { id: course.id, ...input } }))} />
+      <PathMeta path={path} onSave={(input) => run("path saved", () => learnMutate(UPSERT_PATH, { input: { id: path.id, ...input } }))} />
 
       <div className="flex items-center gap-2 my-6">
-        {course.status !== "PUBLISHED" && course.status !== "ARCHIVED" && (
-          <button className="htb-button htb-button-primary" onClick={() => run("published", () => learnMutate(PUBLISH_COURSE, { id: course.id, published: true }))}>
+        {path.status !== "PUBLISHED" && path.status !== "ARCHIVED" && (
+          <button className="htb-button htb-button-primary" onClick={() => run("published", () => learnMutate(PUBLISH_PATH, { id: path.id, published: true }))}>
             Publish
           </button>
         )}
-        {course.status === "PUBLISHED" && (
-          <button className="htb-button htb-button-secondary" onClick={() => run("returned to draft", () => learnMutate(PUBLISH_COURSE, { id: course.id, published: false }))}>
+        {path.status === "PUBLISHED" && (
+          <button className="htb-button htb-button-secondary" onClick={() => run("returned to draft", () => learnMutate(PUBLISH_PATH, { id: path.id, published: false }))}>
             Unpublish
           </button>
         )}
-        {course.status !== "ARCHIVED" && (
-          <button className="htb-button htb-button-danger ml-auto" onClick={() => confirm("Archive this course? Learners will no longer see it.") && run("archived", () => learnMutate(ARCHIVE_COURSE, { id: course.id }))}>
+        {path.status !== "ARCHIVED" && (
+          <button className="htb-button htb-button-danger ml-auto" onClick={() => confirm("Archive this path? Learners will no longer see it.") && run("archived", () => learnMutate(ARCHIVE_PATH, { id: path.id }))}>
             Archive
           </button>
         )}
-        <span className="htb-mono text-xs text-htb-text-dim">{minutes(course.estimatedMinutes)} total</span>
+        <span className="htb-mono text-xs text-htb-text-dim">{minutes(path.estimatedMinutes)} total</span>
       </div>
 
       <h2 className="htb-heading text-xl text-htb-text mb-3">
         <span className="text-htb-green htb-mono">##</span> Modules
       </h2>
       <div className="space-y-4">
-        {course.modules.map((m, i) => (
+        {path.modules.map((m, i) => (
           <ModuleEditor
             key={m.id}
             module={m}
             index={i}
-            count={course.modules.length}
+            count={path.modules.length}
             onMove={(dir) => {
-              const ids = course.modules.map((x) => x.id);
+              const ids = path.modules.map((x) => x.id);
               const j = i + dir;
               [ids[i], ids[j]] = [ids[j], ids[i]];
-              return run("modules reordered", () => learnMutate(REORDER_MODULES, { courseId: course.id, orderedIds: ids }));
+              return run("modules reordered", () => learnMutate(REORDER_MODULES, { pathId: path.id, orderedIds: ids }));
             }}
-            onSave={(input) => run("module saved", () => learnMutate<UpsertModuleMutation, UpsertModuleMutationVariables>(UPSERT_MODULE, { input: { id: m.id, courseId: course.id, ...input } }))}
+            onSave={(input) => run("module saved", () => learnMutate<UpsertModuleMutation, UpsertModuleMutationVariables>(UPSERT_MODULE, { input: { id: m.id, pathId: path.id, ...input } }))}
             onDelete={() => confirm(`Delete module "${m.title}" and its lessons?`) && run("module deleted", () => learnMutate(DELETE_MODULE, { id: m.id }))}
             onLessonMove={(li, dir) => {
               const ids = m.lessons.map((x) => x.id);
@@ -161,34 +161,34 @@ export default function CourseEditorPage() {
             onLessonDelete={(l) => confirm(`Delete lesson "${l.title}"?`) && run("lesson deleted", () => learnMutate(DELETE_LESSON, { id: l.id }))}
           />
         ))}
-        <NewModule onCreate={(title) => run("module added", () => learnMutate(UPSERT_MODULE, { input: { courseId: course.id, title } }))} />
+        <NewModule onCreate={(title) => run("module added", () => learnMutate(UPSERT_MODULE, { input: { pathId: path.id, title } }))} />
       </div>
     </main>
   );
 }
 
-// ---------------------------------------------------------------- course meta
+// ---------------------------------------------------------------- path meta
 
-function CourseMeta({
-  course,
+function PathMeta({
+  path,
   onSave,
 }: {
-  course: Course;
+  path: Path;
   onSave: (input: { title: string; slug: string; description: string; difficulty: Difficulty; tags: string[] }) => Promise<void>;
 }) {
-  const [title, setTitle] = useState(course.title);
-  const [slug, setSlug] = useState(course.slug);
-  const [description, setDescription] = useState(course.description ?? "");
-  const [difficulty, setDifficulty] = useState<Difficulty>(course.difficulty);
-  const [tags, setTags] = useState(course.tags.join(", "));
+  const [title, setTitle] = useState(path.title);
+  const [slug, setSlug] = useState(path.slug);
+  const [description, setDescription] = useState(path.description ?? "");
+  const [difficulty, setDifficulty] = useState<Difficulty>(path.difficulty);
+  const [tags, setTags] = useState(path.tags.join(", "));
   const [saving, setSaving] = useState(false);
 
   const dirty =
-    title !== course.title ||
-    slug !== course.slug ||
-    description !== (course.description ?? "") ||
-    difficulty !== course.difficulty ||
-    tags !== course.tags.join(", ");
+    title !== path.title ||
+    slug !== path.slug ||
+    description !== (path.description ?? "") ||
+    difficulty !== path.difficulty ||
+    tags !== path.tags.join(", ");
 
   return (
     <section className="htb-card p-6 space-y-4">
@@ -211,7 +211,7 @@ function CourseMeta({
         </Field>
       </div>
       <Field label="description (markdown)">
-        <MarkdownEditor value={description} onChange={setDescription} rows={6} placeholder="What will learners be able to do after this course?" />
+        <MarkdownEditor value={description} onChange={setDescription} rows={6} placeholder="What will learners be able to do after this path?" />
       </Field>
       <div className="flex justify-end">
         <button
@@ -223,7 +223,7 @@ function CourseMeta({
           }}
           className="htb-button htb-button-primary disabled:opacity-50"
         >
-          {saving ? "saving…" : "Save course"}
+          {saving ? "saving…" : "Save path"}
         </button>
       </div>
     </section>

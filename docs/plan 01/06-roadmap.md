@@ -63,6 +63,17 @@ After changing the migration, an existing dev database must be reset: `DROP SCHE
 
 ## L2 — Enrollment & progress
 
+**Status: done.** Deviations from the plan below, as built:
+
+- Courses were renamed **paths** everywhere (tables `learn.paths`, `modules.path_id`; GraphQL `Path`, `paths(filter)`, `path(slug)`, `upsertPath`, `publishPath`, …; frontend routes `/paths/[slug]`, `/paths/[slug]/lessons/[id]`). V1 was rewritten in place (dev DB reset required).
+- Migration is **V2** `learn_enrollment_progress`: `enrollments(user_id, path_id, status ENROLLED|COMPLETED|DROPPED, progress, completed_at)`, `module_progress(user_id, module_id, status NOT_STARTED|IN_PROGRESS|COMPLETED|DROPPED, progress, completed_at)`, `completed_lessons(user_id, lesson_id)`.
+- Progress is **derived in Postgres**: `learn.recompute_progress(user, module)` recomputes module progress = completed/total lessons, then path progress = mean of module progress, flipping statuses to `COMPLETED` (and back) — fired by an AFTER INSERT/DELETE trigger on `completed_lessons` and by `LessonService` when lessons are added/removed (`ProgressRepo.recomputeAll(moduleId)`).
+- Schema: `enroll(pathId)`, `dropPath(pathId)`, `startModule(moduleId)`, `dropModule(moduleId)`, `completeLesson(lessonId)` (idempotent, implicit enroll + module start), `myEnrollments`, `Path.enrollment{status, progress, nextLessonId}`, `Module.myProgress`, `Lesson.completed`.
+- Frontend: `EnrollButton` / `CompleteLessonButton` (`components/learn/progress-actions.tsx`), `ProgressBar`, ticks on completed lessons, auto-advance to `nextLessonId`; catalogue with "Continue" strip lives on `learn./dash` (`/` is the account switcher when signed out); portal dashboard card queries `myEnrollments` client-side and links to the next lesson.
+- Tests: `LearnProgressTest` (7) — arithmetic, idempotent complete, implicit enroll, drop/re-enroll, completion flag, lesson-add recompute.
+
+Original plan:
+
 - Migration **V3** (`enrollments`, `lesson_progress`).
 - Schema: `enroll`, `completeLesson`, `Course.enrollment`, `Course.progress`, `Lesson.myProgress`, `myEnrollments`. Completing a lesson without enrollment enrolls implicitly.
 - Course completion cache (`enrollments.completed_at`) computed in the same transaction as the last lesson completion.

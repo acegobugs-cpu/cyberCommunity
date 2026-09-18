@@ -40,12 +40,12 @@ public class LessonRepo {
         return jdbc.query("SELECT " + COLUMNS + " FROM lessons WHERE id = ?", MAPPER, id).stream().findFirst();
     }
 
-    /** Status of the course that owns the lesson — used for learner visibility. */
-    public Optional<String> courseStatusOf(UUID lessonId) {
+    /** Status of the path that owns the lesson — used for learner visibility. */
+    public Optional<String> pathStatusOf(UUID lessonId) {
         return jdbc.query("""
             SELECT c.status FROM lessons l
             JOIN modules m ON m.id = l.module_id
-            JOIN courses c ON c.id = m.course_id
+            JOIN paths c ON c.id = m.path_id
             WHERE l.id = ?
             """, (rs, i) -> rs.getString("status"), lessonId).stream().findFirst();
     }

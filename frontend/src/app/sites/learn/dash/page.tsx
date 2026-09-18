@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { getSessionToken } from "@/lib/server/session";
-import { getCatalogue } from "@/lib/data/learn";
-import { CourseCard } from "@/components/learn/ui";
+import { getCatalogue, getMyEnrollments } from "@/lib/data/learn";
+import { PathCard, ProgressBar } from "@/components/learn/ui";
 import type { Difficulty } from "@/graphql/generated";
 
 export const metadata = { title: "Learn — Cyber Club Portal" };
@@ -19,28 +18,52 @@ export default async function LearnCataloguePage({
     ? (params.difficulty as Difficulty)
     : undefined;
 
-  const token = await getSessionToken();
-  const { courses, error } = await getCatalogue({
-    difficulty,
-    tag: params.tag || undefined,
-    search: params.q || undefined,
-  });
+  const [{ paths, error }, enrollments] = await Promise.all([
+    getCatalogue({
+      difficulty,
+      tag: params.tag || undefined,
+      search: params.q || undefined,
+    }),
+    getMyEnrollments(),
+  ]);
+  const inProgress = enrollments.filter((p) => p.enrollment?.status === "ENROLLED");
 
-  const tags = Array.from(new Set(courses.flatMap((c) => c.tags))).sort();
+  const tags = Array.from(new Set(paths.flatMap((c) => c.tags))).sort();
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10 w-full">
+      {inProgress.length > 0 && (
+        <section className="mb-10">
+          <h2 className="htb-heading text-xl text-htb-text mb-3">
+            <span className="text-htb-green htb-mono">##</span> Continue
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {inProgress.map((p) => {
+              const e = p.enrollment!;
+              const href = e.nextLessonId ? `/paths/${p.slug}/lessons/${e.nextLessonId}` : `/paths/${p.slug}`;
+              return (
+                <Link key={p.id} href={href} className="htb-card htb-card-interactive p-4 flex flex-col gap-2">
+                  <div className="htb-mono text-sm text-htb-text truncate">{p.title}</div>
+                  <ProgressBar value={e.progress} />
+                  <div className="htb-mono text-[0.65rem] text-htb-green">resume →</div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <div className="mb-8 flex items-end justify-between gap-4 flex-wrap">
         <div>
           <div className="htb-mono text-xs uppercase tracking-widest text-htb-text-dim">
-            &gt; ls ./courses
+            &gt; ls ./paths
           </div>
           <h1 className="htb-heading text-3xl text-htb-text mt-1">
             Learning Tracks
-            <span className="text-htb-green htb-mono"> [{courses.length}]</span>
+            <span className="text-htb-green htb-mono"> [{paths.length}]</span>
           </h1>
           <p className="htb-mono text-sm text-htb-text-muted mt-2">
-            Structured courses: modules of readings and videos. Roadmaps, quizzes and labs arrive in later phases.
+            Structured paths: modules of readings and videos. Roadmaps, quizzes and labs arrive in later phases.
           </p>
         </div>
         <form className="flex items-center gap-2" action="/">
@@ -88,9 +111,9 @@ export default async function LearnCataloguePage({
         </div>
       )}
 
-      {courses.length === 0 && !error && (
+      {paths.length === 0 && !error && (
         <div className="htb-card p-10 text-center htb-mono text-xs text-htb-text-dim">
-          no published courses match — authors can create some in{" "}
+          no published paths match — authors can create some in{" "}
           <Link href="/admin" className="text-htb-green">
             /admin
           </Link>
@@ -98,8 +121,8 @@ export default async function LearnCataloguePage({
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {courses.map((c) => (
-          <CourseCard key={c.id} course={c} href={`/courses/${c.slug}`} />
+        {paths.map((c) => (
+          <PathCard key={c.id} path={c} href={`/paths/${c.slug}`} />
         ))}
       </div>
     </main>

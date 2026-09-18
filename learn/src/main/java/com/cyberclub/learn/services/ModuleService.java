@@ -11,64 +11,64 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.cyberclub.learn.dtos.domain.Course;
+import com.cyberclub.learn.dtos.domain.Path;
 import com.cyberclub.learn.dtos.domain.Module;
 import com.cyberclub.learn.dtos.inputs.ModuleInput;
 import com.cyberclub.learn.exceptions.BadRequestException;
 import com.cyberclub.learn.exceptions.NotFoundException;
-import com.cyberclub.learn.repositories.CourseRepo;
+import com.cyberclub.learn.repositories.PathRepo;
 import com.cyberclub.learn.repositories.ModuleRepo;
 
 @Service
 public class ModuleService {
 
     private final ModuleRepo moduleRepo;
-    private final CourseRepo courseRepo;
+    private final PathRepo pathRepo;
 
-    public ModuleService(ModuleRepo moduleRepo, CourseRepo courseRepo) {
+    public ModuleService(ModuleRepo moduleRepo, PathRepo pathRepo) {
         this.moduleRepo = moduleRepo;
-        this.courseRepo = courseRepo;
+        this.pathRepo = pathRepo;
     }
 
     public Module byId(UUID id) {
         return moduleRepo.findById(id).orElseThrow(() -> new NotFoundException("module not found"));
     }
 
-    /** One query for all courses in the batch, grouped for {@code @BatchMapping}. */
-    public Map<Course, List<Module>> forCourses(List<Course> courses) {
-        Map<UUID, List<Module>> byCourse = moduleRepo
-            .findByCourseIds(courses.stream().map(Course::id).toList())
+    /** One query for all paths in the batch, grouped for {@code @BatchMapping}. */
+    public Map<Path, List<Module>> forPaths(List<Path> paths) {
+        Map<UUID, List<Module>> byPath = moduleRepo
+            .findByPathIds(paths.stream().map(Path::id).toList())
             .stream()
-            .collect(Collectors.groupingBy(Module::courseId));
-        return courses.stream().collect(Collectors.toMap(
+            .collect(Collectors.groupingBy(Module::pathId));
+        return paths.stream().collect(Collectors.toMap(
             Function.identity(),
-            c -> byCourse.getOrDefault(c.id(), List.of()),
+            c -> byPath.getOrDefault(c.id(), List.of()),
             (a, b) -> a,
             java.util.LinkedHashMap::new));
     }
 
     @Transactional
     public Module upsert(ModuleInput in) {
-        String title = CourseService.required(in.title(), "title");
+        String title = PathService.required(in.title(), "title");
         if (in.id() == null) {
-            courseRepo.findById(in.courseId()).orElseThrow(() -> new NotFoundException("course not found"));
-            int position = in.position() == null ? moduleRepo.nextPosition(in.courseId()) : in.position();
-            return moduleRepo.insert(in.courseId(), title, in.descriptionMd(), position);
+            pathRepo.findById(in.pathId()).orElseThrow(() -> new NotFoundException("path not found"));
+            int position = in.position() == null ? moduleRepo.nextPosition(in.pathId()) : in.position();
+            return moduleRepo.insert(in.pathId(), title, in.descriptionMd(), position);
         }
         Module existing = byId(in.id());
-        if (!existing.courseId().equals(in.courseId())) {
-            throw new BadRequestException("modules cannot be moved between courses");
+        if (!existing.pathId().equals(in.pathId())) {
+            throw new BadRequestException("modules cannot be moved between paths");
         }
         return moduleRepo.update(existing.id(), title, in.descriptionMd(), in.position());
     }
 
     /**
-     * orderedIds must be exactly the set of the course's module ids (no missing,
+     * orderedIds must be exactly the set of the path's module ids (no missing,
      * no extra, no duplicates); positions become 1..n in the given order.
      */
     @Transactional
-    public void reorder(UUID courseId, List<UUID> orderedIds) {
-        validateReorder(new HashSet<>(moduleRepo.idsForCourse(courseId)), orderedIds, "module");
+    public void reorder(UUID pathId, List<UUID> orderedIds) {
+        validateReorder(new HashSet<>(moduleRepo.idsForPath(pathId)), orderedIds, "module");
         moduleRepo.reorder(orderedIds);
     }
 
@@ -77,9 +77,9 @@ public class ModuleService {
         Module m = byId(id);
         boolean deleted = moduleRepo.delete(id);
         // renumber the remaining siblings so positions stay contiguous
-        List<UUID> rest = moduleRepo.findByCourseId(m.courseId()).stream().map(Module::id).toList();
+        List<UUID> rest = moduleRepo.findByPathId(m.pathId()).stream().map(Module::id).toList();
         if (!rest.isEmpty()) moduleRepo.reorder(rest);
-        courseRepo.refreshEstimatedMinutes(m.courseId());
+        pathRepo.refreshEstimatedMinutes(m.pathId());
         return deleted;
     }
 

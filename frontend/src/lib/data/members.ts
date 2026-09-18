@@ -18,7 +18,10 @@ export async function getEnrichedMembers(
 
   if (token) {
     try {
-      const res = await gatewayFetch("/users", { service: "portal", token });
+      const res = await gatewayFetch("/users", {
+        service: "portal",
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.ok) {
         realMembers = (await res.json()) as Member[];
         source = "gateway";

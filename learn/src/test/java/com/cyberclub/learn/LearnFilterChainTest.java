@@ -15,7 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
  */
 class LearnFilterChainTest extends BaseIntegrationTest {
 
-    private static final String BODY = "{\"query\":\"{ courses { id } }\"}";
+    private static final String BODY = "{\"query\":\"{ paths { id } }\"}";
 
     @Autowired
     private MockMvc mockMvc;
@@ -60,6 +60,6 @@ class LearnFilterChainTest extends BaseIntegrationTest {
                         .header("X-User-Id", USER_ID)
                         .content(BODY))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.courses").isArray());
+                .andExpect(jsonPath("$.data.paths").isArray());
     }
 }

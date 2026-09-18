@@ -7,17 +7,17 @@ import { useAuth } from "@/lib/auth-context";
 import { useAreaUrl } from "@/lib/use-area-url";
 import { learnMutate } from "@/lib/learn/client";
 import { LearnApiError } from "@/lib/learn/graphql";
-import { CATALOGUE, UPSERT_COURSE } from "@/graphql/learn-documents";
-import type { CatalogueQuery, UpsertCourseMutation, UpsertCourseMutationVariables } from "@/graphql/generated";
+import { CATALOGUE, UPSERT_PATH } from "@/graphql/learn-documents";
+import type { CatalogueQuery, UpsertPathMutation, UpsertPathMutationVariables } from "@/graphql/generated";
 import { DifficultyBadge, StatusBadge, minutes } from "@/components/learn/ui";
 
-type CourseRow = CatalogueQuery["courses"][number];
+type PathRow = CatalogueQuery["paths"][number];
 
 export default function LearnAdminPage() {
   const router = useRouter();
   const areaHref = useAreaUrl();
   const { user, loading: authLoading } = useAuth();
-  const [courses, setCourses] = useState<CourseRow[] | null>(null);
+  const [paths, setPaths] = useState<PathRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [creating, setCreating] = useState(false);
@@ -29,7 +29,7 @@ export default function LearnAdminPage() {
       return;
     }
     learnMutate<CatalogueQuery, Record<string, never>>(CATALOGUE, {})
-      .then((d) => setCourses(d.courses))
+      .then((d) => setPaths(d.paths))
       .catch((e) => setError(e instanceof Error ? e.message : "failed to load"));
   }, [user, authLoading, areaHref]);
 
@@ -38,10 +38,10 @@ export default function LearnAdminPage() {
     setCreating(true);
     setError(null);
     try {
-      const d = await learnMutate<UpsertCourseMutation, UpsertCourseMutationVariables>(UPSERT_COURSE, {
+      const d = await learnMutate<UpsertPathMutation, UpsertPathMutationVariables>(UPSERT_PATH, {
         input: { title: title.trim() },
       });
-      router.push(`/admin/courses/${d.upsertCourse.id}`);
+      router.push(`/admin/paths/${d.upsertPath.id}`);
     } catch (e) {
       setError(e instanceof LearnApiError ? `${e.classification}: ${e.message}` : "create failed");
       setCreating(false);
@@ -58,7 +58,7 @@ export default function LearnAdminPage() {
         <div className="htb-mono text-xs uppercase tracking-widest text-htb-text-dim">&gt; ./learn-admin --tree</div>
         <h1 className="htb-heading text-3xl text-htb-text mt-1">Content</h1>
         <p className="htb-mono text-sm text-htb-text-muted mt-2">
-          Courses → modules → lessons. Drafts are invisible to learners until published. Creating and editing
+          Paths → modules → lessons. Drafts are invisible to learners until published. Creating and editing
           requires the <span className="text-htb-green">ADMIN</span> role in the learn service.
         </p>
       </div>
@@ -68,7 +68,7 @@ export default function LearnAdminPage() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && create()}
-          placeholder="new course title…"
+          placeholder="new path title…"
           className="htb-input flex-1"
         />
         <button onClick={create} disabled={creating || !title.trim()} className="htb-button htb-button-primary disabled:opacity-50">
@@ -80,17 +80,17 @@ export default function LearnAdminPage() {
 
       <div className="htb-card overflow-hidden">
         <div className="grid grid-cols-12 gap-2 px-5 py-3 border-b border-htb-border bg-htb-bg-elevated htb-mono text-[0.65rem] uppercase tracking-widest text-htb-text-dim">
-          <div className="col-span-5">course</div>
+          <div className="col-span-5">path</div>
           <div className="col-span-2">status</div>
           <div className="col-span-2">level</div>
           <div className="col-span-2 text-right">length</div>
           <div className="col-span-1 text-right">updated</div>
         </div>
-        {courses === null && <div className="px-5 py-8 htb-mono text-xs text-htb-text-dim animate-htb-pulse">loading…</div>}
-        {courses?.map((c) => (
+        {paths === null && <div className="px-5 py-8 htb-mono text-xs text-htb-text-dim animate-htb-pulse">loading…</div>}
+        {paths?.map((c) => (
           <Link
             key={c.id}
-            href={`/admin/courses/${c.id}`}
+            href={`/admin/paths/${c.id}`}
             className="grid grid-cols-12 gap-2 px-5 py-3 items-center border-b border-htb-border last:border-b-0 hover:bg-htb-bg-hover"
           >
             <div className="col-span-5 min-w-0">
@@ -109,8 +109,8 @@ export default function LearnAdminPage() {
             </div>
           </Link>
         ))}
-        {courses?.length === 0 && (
-          <div className="px-5 py-8 text-center htb-mono text-xs text-htb-text-dim">no courses yet — create the first one above</div>
+        {paths?.length === 0 && (
+          <div className="px-5 py-8 text-center htb-mono text-xs text-htb-text-dim">no paths yet — create the first one above</div>
         )}
       </div>
     </main>

@@ -4,7 +4,7 @@ import java.util.UUID;
 import java.time.Instant;
 public record Module(
     UUID id,
-    UUID courseId,
+    UUID pathId,
 
     String title,
     String descriptionMd,

@@ -1,23 +1,48 @@
 """
-Learn — Plan 01, Phase L1 content model.
-Enum vocabularies match the CHECK constraints in infra/migrations/learn/V1.
-Timestamps are ISO-8601 strings.
+Learn — Plan 01. L1 content model (paths → modules → lessons) + L2 enrollment & progress.
+Enum vocabularies match the CHECK constraints in infra/migrations/learn/V1, V2.
+Timestamps are ISO-8601 strings; progress values are 0..1.
 """
 
-enum CourseStatus { DRAFT PUBLISHED ARCHIVED }
+enum PathStatus { DRAFT PUBLISHED ARCHIVED }
 enum Difficulty { BEGINNER INTERMEDIATE ADVANCED }
 enum LessonType { READING VIDEO QUIZ LAB PROJECT }
+enum EnrollmentStatus { ENROLLED COMPLETED DROPPED }
+enum ModuleProgressStatus { STARTED IN_PROGRESS COMPLETED DROPPED }
+
+# ---------- learner progress (caller-scoped) ----------
+
+type Enrollment {
+  pathId: ID!
+  status: EnrollmentStatus!
+  "Mean of module progress over the path's modules."
+  progress: Float!
+  enrolledAt: String!
+  completedAt: String
+  droppedAt: String
+  "First lesson the caller has not completed; null when the path is finished."
+  nextLessonId: ID
+}
+
+type ModuleProgress {
+  moduleId: ID!
+  status: ModuleProgressStatus!
+  "Completed lessons / lessons in module."
+  progress: Float!
+  startedAt: String!
+  completedAt: String
+}
 
 # ---------- content ----------
 
-type Course {
+type Path {
   id: ID!
   slug: String!
   title: String!
   description: String
   difficulty: Difficulty!
   tags: [String!]!
-  status: CourseStatus!
+  status: PathStatus!
   "Sum of lesson estimates; maintained by the server."
   estimatedMinutes: Int!
   createdBy: ID
@@ -25,17 +50,21 @@ type Course {
   updatedAt: String!
   archivedAt: String
   modules: [Module!]!
+  "The caller's enrollment, null when never enrolled."
+  enrollment: Enrollment
 }
 
 type Module {
   id: ID!
-  courseId: ID!
+  pathId: ID!
   title: String!
   descriptionMd: String
   position: Int!
   createdAt: String!
   updatedAt: String!
   lessons: [Lesson!]!
+  "The caller's progress in this module, null when never started."
+  myProgress: ModuleProgress
 }
 
 type Lesson {
@@ -49,6 +78,7 @@ type Lesson {
   estimatedMinutes: Int!
   createdAt: String!
   updatedAt: String!
+  completed: Boolean!
 }
 
 # ---------- queries (LEARNER; unpublished content visible to CONTENT_AUTHOR only) ----------
@@ -62,17 +92,22 @@ type Me {
 
 type Query {
   me: Me!
-  courses(difficulty: Difficulty, tag: String, search: String): [Course!]!
-  course(slug: String!): Course
-  "Author editor entry point; also works for learners on published courses."
-  courseById(id: ID!): Course
+  paths(difficulty: Difficulty, tag: String, search: String): [Path!]!
+  path(slug: String!): Path
+  "Author editor entry point; also works for learners on published paths."
+  pathById(id: ID!): Path
   lesson(id: ID!): Lesson
+  "Paths the caller is enrolled in or has completed (dropped excluded), in-progress first."
+  myEnrollments: [Path!]!
 }
+
+# ---------- learner mutations (LEARNER) ----------
+# All operate on the caller; there is no userId argument.
 
 # ---------- author mutations (CONTENT_AUTHOR) ----------
 
 "id absent → insert (slug generated from title when omitted); id present → update."
-input CourseInput {
+input PathInput {
   id: ID
   title: String!
   slug: String
@@ -84,7 +119,7 @@ input CourseInput {
 "position omitted on insert → appended at the end."
 input ModuleInput {
   id: ID
-  courseId: ID!
+  pathId: ID!
   title: String!
   descriptionMd: String
   position: Int
@@ -102,17 +137,27 @@ input LessonInput {
 }
 
 type Mutation {
-  upsertCourse(input: CourseInput!): Course!
+  "Idempotent; revives a DROPPED enrollment. Path must be PUBLISHED."
+  enroll(pathId: ID!): Enrollment!
+  dropPath(pathId: ID!): Enrollment!
+  "Explicit start (also enrolls in the path). Completing a lesson does this implicitly."
+  startModule(moduleId: ID!): ModuleProgress!
+  dropModule(moduleId: ID!): ModuleProgress!
+  "READING / VIDEO only; idempotent; enrolls + starts the module implicitly."
+  completeLesson(lessonId: ID!): Lesson!
+
+  # ---------- author mutations (CONTENT_AUTHOR) ----------
+  upsertPath(input: PathInput!): Path!
   upsertModule(input: ModuleInput!): Module!
   upsertLesson(input: LessonInput!): Lesson!
 
   "orderedIds must be exactly the set of the parent's children; positions become 1..n."
-  reorderModules(courseId: ID!, orderedIds: [ID!]!): Course!
+  reorderModules(pathId: ID!, orderedIds: [ID!]!): Path!
   reorderLessons(moduleId: ID!, orderedIds: [ID!]!): Module!
 
-  "published=false returns the course to DRAFT."
-  publishCourse(id: ID!, published: Boolean = true): Course!
-  archiveCourse(id: ID!): Course!
+  "published=false returns the path to DRAFT."
+  publishPath(id: ID!, published: Boolean = true): Path!
+  archivePath(id: ID!): Path!
 
   deleteModule(id: ID!): Boolean!
   deleteLesson(id: ID!): Boolean!

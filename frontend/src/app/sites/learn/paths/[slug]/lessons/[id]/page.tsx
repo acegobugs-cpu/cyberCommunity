@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getSessionToken } from "@/lib/server/session";
-import { getCourseBySlug, getLesson } from "@/lib/data/learn";
-import { LessonTypeBadge, minutes } from "@/components/learn/ui";
+import { getPathBySlug, getLesson } from "@/lib/data/learn";
+import { LessonTypeBadge, ProgressBar, minutes } from "@/components/learn/ui";
 import { MarkdownView } from "@/components/learn/markdown-view";
 import { VideoEmbed } from "@/components/learn/video-embed";
+import { CompleteLessonButton } from "@/components/learn/progress-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -14,25 +14,28 @@ export default async function LessonPage({
   params: Promise<{ slug: string; id: string }>;
 }) {
   const { slug, id } = await params;
-  const token = await getSessionToken();
-  const [course, lesson] = await Promise.all([getCourseBySlug(token, slug), getLesson(token, id)]);
-  if (!course || !lesson) notFound();
+  const [path, lesson] = await Promise.all([getPathBySlug(slug), getLesson(id)]);
+  if (!path || !lesson) notFound();
 
   // flatten syllabus for prev/next
-  const flat = course.modules.flatMap((m) => m.lessons.map((l) => ({ ...l, moduleTitle: m.title })));
+  const flat = path.modules.flatMap((m) => m.lessons.map((l) => ({ ...l, moduleTitle: m.title })));
   const idx = flat.findIndex((l) => l.id === lesson.id);
   if (idx === -1) notFound();
   const prev = idx > 0 ? flat[idx - 1] : null;
   const next = idx < flat.length - 1 ? flat[idx + 1] : null;
+  const nextHref = next ? `/paths/${path.slug}/lessons/${next.id}` : null;
+  const completable = lesson.type === "READING" || lesson.type === "VIDEO";
+  const enrollment = path.enrollment && path.enrollment.status !== "DROPPED" ? path.enrollment : null;
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-8 w-full grid gap-8 lg:grid-cols-[280px_1fr]">
       <aside className="lg:sticky lg:top-20 self-start">
-        <Link href={`/courses/${course.slug}`} className="htb-mono text-xs text-htb-text-dim hover:text-htb-green">
-          ← {course.title}
+        <Link href={`/paths/${path.slug}`} className="htb-mono text-xs text-htb-text-dim hover:text-htb-green">
+          ← {path.title}
         </Link>
+        {enrollment && <ProgressBar value={enrollment.progress} className="mt-3" />}
         <nav className="mt-4 htb-card overflow-hidden text-sm">
-          {course.modules.map((m) => (
+          {path.modules.map((m) => (
             <div key={m.id}>
               <div className="px-4 py-2 bg-htb-bg-elevated border-b border-htb-border htb-mono text-[0.65rem] uppercase tracking-widest text-htb-text-dim">
                 {m.position}. {m.title}
@@ -40,14 +43,15 @@ export default async function LessonPage({
               {m.lessons.map((l) => (
                 <Link
                   key={l.id}
-                  href={`/courses/${course.slug}/lessons/${l.id}`}
-                  className={`block px-4 py-2 border-b border-htb-border htb-mono text-xs truncate ${
+                  href={`/paths/${path.slug}/lessons/${l.id}`}
+                  className={`flex items-center gap-2 px-4 py-2 border-b border-htb-border htb-mono text-xs ${
                     l.id === lesson.id
                       ? "text-htb-green bg-htb-green/10"
                       : "text-htb-text-muted hover:text-htb-text hover:bg-htb-bg-hover"
                   }`}
                 >
-                  {l.title}
+                  <span className={l.completed ? "text-htb-green" : "text-htb-text-dim"}>{l.completed ? "✓" : "·"}</span>
+                  <span className="truncate">{l.title}</span>
                 </Link>
               ))}
             </div>
@@ -87,21 +91,24 @@ export default async function LessonPage({
 
         <div className="mt-8 flex items-center justify-between gap-3">
           {prev ? (
-            <Link href={`/courses/${course.slug}/lessons/${prev.id}`} className="htb-button htb-button-ghost">
+            <Link href={`/paths/${path.slug}/lessons/${prev.id}`} className="htb-button htb-button-ghost">
               ← {prev.title}
             </Link>
           ) : (
             <span />
           )}
-          {next ? (
-            <Link href={`/courses/${course.slug}/lessons/${next.id}`} className="htb-button htb-button-primary">
-              {next.title} →
+          {completable && path.status === "PUBLISHED" ? (
+            <CompleteLessonButton lessonId={lesson.id} completed={lesson.completed} nextHref={nextHref} />
+          ) : null}
+          {(!completable || lesson.completed) && (nextHref ? (
+            <Link href={nextHref} className="htb-button htb-button-secondary">
+              {next!.title} →
             </Link>
           ) : (
-            <Link href={`/courses/${course.slug}`} className="htb-button htb-button-secondary">
-              back to course
+            <Link href={`/paths/${path.slug}`} className="htb-button htb-button-secondary">
+              back to path
             </Link>
-          )}
+          ))}
         </div>
       </article>
     </main>

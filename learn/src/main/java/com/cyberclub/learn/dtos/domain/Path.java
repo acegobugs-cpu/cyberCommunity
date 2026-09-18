@@ -4,14 +4,14 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-public record Course(
+public record Path(
     UUID id,
     String slug,
     String title,
     String description,
     Difficulty difficulty,
     List<String> tags,
-    CourseStatus status,
+    PathStatus status,
     int estimatedMinutes,
     UUID createdBy,
     Instant createdAt,

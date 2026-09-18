@@ -10,7 +10,7 @@ import {
 /**
  * Host-based routing (Next.js 16 middleware, file name `proxy.ts`).
  *
- *   learn.<root>/courses/x   → rewrite → /sites/learn/courses/x
+ *   learn.<root>/paths/x     → rewrite → /sites/learn/paths/x
  *   community.<root>/        → rewrite → /sites/community
  *   <root>/dashboard         → portal pages, untouched
  *   <root>/learn             → redirect → learn.<root>/   (areas are NOT reachable by path on the portal host)
