@@ -162,4 +162,20 @@ public class PathRepo {
             ORDER BY title
             """.formatted(COLUMNS), MAPPER, moduleId);
     }
+
+    /** moduleId → paths that include it (for {@code Module.paths}); every requested id present. */
+    public java.util.Map<UUID, List<Path>> findContaining(List<UUID> moduleIds, boolean includeUnpublished) {
+        java.util.Map<UUID, List<Path>> out = new java.util.LinkedHashMap<>();
+        moduleIds.forEach(id -> out.put(id, new java.util.ArrayList<>()));
+        if (moduleIds.isEmpty()) return out;
+        String cols = Arrays.stream(COLUMNS.split(", ")).map(c -> "p." + c).collect(java.util.stream.Collectors.joining(", "));
+        jdbc.query("""
+            SELECT pm.module_id, %s FROM path_modules pm JOIN paths p ON p.id = pm.path_id
+            WHERE pm.module_id = ANY(?) AND p.archived_at IS NULL %s
+            ORDER BY p.title
+            """.formatted(cols, includeUnpublished ? "" : "AND p.status = 'PUBLISHED'"),
+            rs -> { out.get(rs.getObject("module_id", UUID.class)).add(MAPPER.mapRow(rs, 0)); },
+            (Object) moduleIds.toArray(new UUID[0]));
+        return out;
+    }
 }

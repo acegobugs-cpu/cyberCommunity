@@ -12,6 +12,11 @@ export type EnrollmentStatus =
   | 'DROPPED'
   | 'ENROLLED';
 
+/** ALL: every item of the step counts; CHOICE: any one item of the step satisfies it. */
+export type GroupType =
+  | 'ALL'
+  | 'CHOICE';
+
 export type LessonInput = {
   contentMd?: string | null | undefined;
   estimatedMinutes?: number | null | undefined;
@@ -55,11 +60,33 @@ export type PathInput = {
 };
 
 /**
- * Learn — Plan 01. L1 content model (paths → modules → lessons) + L2 enrollment & progress.
- * Enum vocabularies match the CHECK constraints in infra/migrations/learn/V1, V2.
+ * Learn — Plan 01. L1 content model (paths → modules → lessons), L2 enrollment & progress, L3 roadmaps.
+ * Enum vocabularies match the CHECK constraints in infra/migrations/learn/V1–V3.
  * Timestamps are ISO-8601 strings; progress values are 0..1.
  */
 export type PathStatus =
+  | 'ARCHIVED'
+  | 'DRAFT'
+  | 'PUBLISHED';
+
+/** id absent → insert (slug generated from title when omitted); id present → update. Status changes go through publishRoadmap / archiveRoadmap. */
+export type RoadMapInput = {
+  descriptionMd?: string | null | undefined;
+  id?: string | null | undefined;
+  slug?: string | null | undefined;
+  title: string;
+};
+
+/** Exactly one of pathId / moduleId. Items sharing a position form one step and must share groupType. */
+export type RoadMapItemInput = {
+  groupType?: GroupType | null | undefined;
+  isRequired?: boolean | null | undefined;
+  moduleId?: string | null | undefined;
+  pathId?: string | null | undefined;
+  position: number;
+};
+
+export type RoadMapStatus =
   | 'ARCHIVED'
   | 'DRAFT'
   | 'PUBLISHED';
@@ -222,3 +249,79 @@ export type DeleteLessonMutationVariables = Exact<{
 
 
 export type DeleteLessonMutation = { deleteLesson: boolean };
+
+export type RoadMapCardFragment = { id: string, slug: string, title: string, descriptionMd: string | null, status: RoadMapStatus, progress: number, updatedAt: string };
+
+export type RoadMapTreeFragment = { createdAt: string, id: string, slug: string, title: string, descriptionMd: string | null, status: RoadMapStatus, progress: number, updatedAt: string, items: Array<{ id: string, position: number, groupType: GroupType, isRequired: boolean, progress: number, item:
+      | { __typename: 'Module', id: string, title: string, descriptionMd: string | null, paths: Array<{ id: string, slug: string, title: string, status: PathStatus }>, myProgress: { status: ModuleProgressStatus, progress: number } | null }
+      | { __typename: 'Path', id: string, slug: string, title: string, description: string | null, difficulty: Difficulty, tags: Array<string>, status: PathStatus, estimatedMinutes: number, updatedAt: string, enrollment: { pathId: string, status: EnrollmentStatus, progress: number, enrolledAt: string, completedAt: string | null, nextLessonId: string | null } | null }
+     }> };
+
+export type RoadmapsQueryVariables = Exact<{
+  search?: string | null | undefined;
+}>;
+
+
+export type RoadmapsQuery = { roadmaps: Array<{ id: string, slug: string, title: string, descriptionMd: string | null, status: RoadMapStatus, progress: number, updatedAt: string }> };
+
+export type RoadmapBySlugQueryVariables = Exact<{
+  slug: string;
+}>;
+
+
+export type RoadmapBySlugQuery = { roadmap: { createdAt: string, id: string, slug: string, title: string, descriptionMd: string | null, status: RoadMapStatus, progress: number, updatedAt: string, items: Array<{ id: string, position: number, groupType: GroupType, isRequired: boolean, progress: number, item:
+        | { __typename: 'Module', id: string, title: string, descriptionMd: string | null, paths: Array<{ id: string, slug: string, title: string, status: PathStatus }>, myProgress: { status: ModuleProgressStatus, progress: number } | null }
+        | { __typename: 'Path', id: string, slug: string, title: string, description: string | null, difficulty: Difficulty, tags: Array<string>, status: PathStatus, estimatedMinutes: number, updatedAt: string, enrollment: { pathId: string, status: EnrollmentStatus, progress: number, enrolledAt: string, completedAt: string | null, nextLessonId: string | null } | null }
+       }> } | null };
+
+export type RoadmapByIdQueryVariables = Exact<{
+  id: string;
+}>;
+
+
+export type RoadmapByIdQuery = { roadmapById: { createdAt: string, id: string, slug: string, title: string, descriptionMd: string | null, status: RoadMapStatus, progress: number, updatedAt: string, items: Array<{ id: string, position: number, groupType: GroupType, isRequired: boolean, progress: number, item:
+        | { __typename: 'Module', id: string, title: string, descriptionMd: string | null, paths: Array<{ id: string, slug: string, title: string, status: PathStatus }>, myProgress: { status: ModuleProgressStatus, progress: number } | null }
+        | { __typename: 'Path', id: string, slug: string, title: string, description: string | null, difficulty: Difficulty, tags: Array<string>, status: PathStatus, estimatedMinutes: number, updatedAt: string, enrollment: { pathId: string, status: EnrollmentStatus, progress: number, enrolledAt: string, completedAt: string | null, nextLessonId: string | null } | null }
+       }> } | null };
+
+export type MyRoadmapsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type MyRoadmapsQuery = { myRoadmaps: Array<{ id: string, slug: string, title: string, descriptionMd: string | null, status: RoadMapStatus, progress: number, updatedAt: string }> };
+
+export type UpsertRoadmapMutationVariables = Exact<{
+  input: RoadMapInput;
+}>;
+
+
+export type UpsertRoadmapMutation = { upsertRoadmap: { id: string, slug: string, title: string, descriptionMd: string | null, status: RoadMapStatus, progress: number, updatedAt: string } };
+
+export type SetRoadmapItemsMutationVariables = Exact<{
+  roadmapId: string;
+  items: Array<RoadMapItemInput> | RoadMapItemInput;
+}>;
+
+
+export type SetRoadmapItemsMutation = { setRoadmapItems: { id: string } };
+
+export type PublishRoadmapMutationVariables = Exact<{
+  id: string;
+  published?: boolean | null | undefined;
+}>;
+
+
+export type PublishRoadmapMutation = { publishRoadmap: { id: string, status: RoadMapStatus } };
+
+export type ArchiveRoadmapMutationVariables = Exact<{
+  id: string;
+}>;
+
+
+export type ArchiveRoadmapMutation = { archiveRoadmap: { id: string, status: RoadMapStatus } };
+
+export type DeleteRoadmapMutationVariables = Exact<{
+  id: string;
+}>;
+
+
+export type DeleteRoadmapMutation = { deleteRoadmap: boolean };

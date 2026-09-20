@@ -6,6 +6,9 @@ import {
   PATH_BY_SLUG,
   LESSON_BY_ID,
   MY_ENROLLMENTS,
+  ROADMAPS,
+  ROADMAP_BY_SLUG,
+  MY_ROADMAPS,
 } from "@/graphql/learn-documents";
 import type {
   CatalogueQuery,
@@ -14,6 +17,9 @@ import type {
   PathBySlugQuery,
   LessonByIdQuery,
   MyEnrollmentsQuery,
+  RoadmapsQuery,
+  RoadmapBySlugQuery,
+  MyRoadmapsQuery,
 } from "@/graphql/generated";
 
 /**
@@ -79,6 +85,37 @@ export async function getMyEnrollments(): Promise<MyEnrollmentsQuery["myEnrollme
   try {
     const data = await learnQuery<MyEnrollmentsQuery>(MY_ENROLLMENTS, {});
     return data.myEnrollments;
+  } catch {
+    return [];
+  }
+}
+
+// ---------- roadmaps (L3) ----------
+
+/** Published roadmaps (with the caller's derived progress). [] when unavailable. */
+export async function getRoadmaps(search?: string): Promise<RoadmapsQuery["roadmaps"]> {
+  try {
+    const data = await learnQuery<RoadmapsQuery, { search?: string }>(ROADMAPS, search ? { search } : {});
+    return data.roadmaps;
+  } catch {
+    return [];
+  }
+}
+
+export async function getRoadmapBySlug(slug: string) {
+  try {
+    const data = await learnQuery<RoadmapBySlugQuery, { slug: string }>(ROADMAP_BY_SLUG, { slug });
+    return data.roadmap;
+  } catch {
+    return null;
+  }
+}
+
+/** Roadmaps the caller has already made progress on, most advanced first. */
+export async function getMyRoadmaps(): Promise<MyRoadmapsQuery["myRoadmaps"]> {
+  try {
+    const data = await learnQuery<MyRoadmapsQuery>(MY_ROADMAPS, {});
+    return data.myRoadmaps;
   } catch {
     return [];
   }

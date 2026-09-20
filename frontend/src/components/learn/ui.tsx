@@ -111,3 +111,25 @@ export function PathCard({
     </Link>
   );
 }
+
+/** Roadmap tile: title, first line of the description, derived progress. */
+export function RoadMapCard({
+  roadmap,
+  href,
+}: {
+  roadmap: { slug: string; title: string; descriptionMd?: string | null; status?: PathStatus; progress: number };
+  href: string;
+}) {
+  const blurb = roadmap.descriptionMd?.split("\n").find((l) => l.trim() && !l.startsWith("#"));
+  return (
+    <Link href={href} className="htb-card htb-card-interactive p-5 flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="htb-heading text-lg text-htb-text">{roadmap.title}</h3>
+        <span className="htb-badge htb-badge-purple">roadmap</span>
+      </div>
+      {blurb && <p className="htb-mono text-xs text-htb-text-muted line-clamp-2">{blurb}</p>}
+      <ProgressBar value={roadmap.progress} className="mt-auto" />
+      {roadmap.status && roadmap.status !== "PUBLISHED" && <StatusBadge value={roadmap.status} />}
+    </Link>
+  );
+}

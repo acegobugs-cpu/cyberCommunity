@@ -10,6 +10,8 @@ import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
 
+import graphql.GraphQLContext;
+
 import com.cyberclub.learn.context.UserContext;
 import com.cyberclub.learn.dtos.AuthResult;
 import com.cyberclub.learn.dtos.domain.Path;
@@ -46,20 +48,20 @@ public class PathResolver {
     public record Me(UUID userId, String role, boolean canAuthor) {}
 
     @QueryMapping
-    public List<Path> paths(@Argument Difficulty difficulty, @Argument String tag, @Argument String search) {
-        boolean drafts = Access.learnerSeesDrafts(auth);
+    public List<Path> paths(@Argument Difficulty difficulty, @Argument String tag, @Argument String search, GraphQLContext ctx) {
+        boolean drafts = Access.learnerSeesDrafts(auth, ctx);
         return paths.list(difficulty, tag, search, drafts);
     }
 
     @QueryMapping
-    public Path path(@Argument String slug) {
-        boolean drafts = Access.learnerSeesDrafts(auth);
+    public Path path(@Argument String slug, GraphQLContext ctx) {
+        boolean drafts = Access.learnerSeesDrafts(auth, ctx);
         return paths.bySlug(slug, drafts);
     }
 
     @QueryMapping
-    public Path pathById(@Argument UUID id) {
-        boolean drafts = Access.learnerSeesDrafts(auth);
+    public Path pathById(@Argument UUID id, GraphQLContext ctx) {
+        boolean drafts = Access.learnerSeesDrafts(auth, ctx);
         return paths.byId(id, drafts);
     }
 
@@ -67,6 +69,12 @@ public class PathResolver {
     @BatchMapping(typeName = "Path", field = "modules")
     public Map<Path, List<Module>> modules(List<Path> parents) {
         return modules.forPaths(parents);
+    }
+
+    /** Paths that include each module; learners see published ones only (decision taken by the top-level resolver). */
+    @BatchMapping(typeName = "Module", field = "paths")
+    public Map<Module, List<Path>> modulePaths(List<Module> parents, GraphQLContext ctx) {
+        return paths.containing(parents, Access.drafts(ctx));
     }
 
     // ---------- author mutations ----------

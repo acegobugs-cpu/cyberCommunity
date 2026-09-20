@@ -1,6 +1,6 @@
 """
-Learn — Plan 01. L1 content model (paths → modules → lessons) + L2 enrollment & progress.
-Enum vocabularies match the CHECK constraints in infra/migrations/learn/V1, V2.
+Learn — Plan 01. L1 content model (paths → modules → lessons), L2 enrollment & progress, L3 roadmaps.
+Enum vocabularies match the CHECK constraints in infra/migrations/learn/V1–V3.
 Timestamps are ISO-8601 strings; progress values are 0..1.
 """
 
@@ -9,6 +9,11 @@ enum Difficulty { BEGINNER INTERMEDIATE ADVANCED }
 enum LessonType { READING VIDEO QUIZ LAB PROJECT }
 enum EnrollmentStatus { ENROLLED COMPLETED DROPPED }
 enum ModuleProgressStatus { STARTED IN_PROGRESS COMPLETED DROPPED }
+enum RoadMapStatus { DRAFT PUBLISHED ARCHIVED }
+"ALL: every item of the step counts; CHOICE: any one item of the step satisfies it."
+enum GroupType { ALL CHOICE }
+
+union RoadMapTarget = Path | Module
 
 # ---------- learner progress (caller-scoped) ----------
 
@@ -35,6 +40,39 @@ type ModuleProgress {
 
 # ---------- content ----------
 
+"""
+An ordered set of steps pointing at paths / modules. Roadmaps are not enrolled:
+`progress` is derived from the caller's enrollments and module progress, so a
+learner can see which roadmaps they are already on.
+"""
+type RoadMap {
+  id: ID!
+  slug: String!
+  title: String!
+  descriptionMd: String
+  status: RoadMapStatus!
+  "Ordered by step then creation. Learners only see items whose target is published."
+  items: [RoadMapItem!]!
+  "Mean over required steps (ALL → mean of items, CHOICE → best item); non-required items are ignored."
+  progress: Float!
+  createdBy: ID
+  createdAt: String!
+  updatedAt: String!
+  archivedAt: String
+}
+
+type RoadMapItem {
+  id: ID!
+  "Step number; several items may share a step."
+  position: Int!
+  groupType: GroupType!
+  isRequired: Boolean!
+  item: RoadMapTarget!
+  "The caller's progress on the target (enrollment or module progress), 0 when untouched."
+  progress: Float!
+  createdAt: String!
+}
+
 type Path {
   id: ID!
   slug: String!
@@ -54,10 +92,6 @@ type Path {
   enrollment: Enrollment
 }
 
-"""
-Reusable content unit: a module can appear in several paths. Its order within a
-path is a property of the path (Path.modules is ordered), not of the module.
-"""
 type Module {
   id: ID!
   title: String!
@@ -65,6 +99,8 @@ type Module {
   createdAt: String!
   updatedAt: String!
   lessons: [Lesson!]!
+  "Paths that include this module (published only for learners). Used to link module roadmap items."
+  paths: [Path!]!
   "The caller's progress in this module (shared across paths), null when never started."
   myProgress: ModuleProgress
 }
@@ -94,13 +130,25 @@ type Me {
 
 type Query {
   me: Me!
+
+  "Catalogue; learners see PUBLISHED only."
+  roadmaps(search: String): [RoadMap!]!
+  roadmap(slug: String!): RoadMap
+  "Author editor entry point; also works for learners on published roadmaps."
+  roadmapById(id: ID!): RoadMap
+  "Published roadmaps the caller has already made progress on, most advanced first."
+  myRoadmaps: [RoadMap!]!
+
   paths(difficulty: Difficulty, tag: String, search: String): [Path!]!
   path(slug: String!): Path
   "Author editor entry point; also works for learners on published paths."
   pathById(id: ID!): Path
+
   lesson(id: ID!): Lesson
+
   "Paths the caller is enrolled in or has completed (dropped excluded), in-progress first."
   myEnrollments: [Path!]!
+
   "Author picker for reusing modules across paths (CONTENT_AUTHOR)."
   modules(search: String): [Module!]!
 }
@@ -109,6 +157,23 @@ type Query {
 # All operate on the caller; there is no userId argument.
 
 # ---------- author mutations (CONTENT_AUTHOR) ----------
+
+"id absent → insert (slug generated from title when omitted); id present → update. Status changes go through publishRoadmap / archiveRoadmap."
+input RoadMapInput {
+  id: ID
+  title: String!
+  slug: String
+  descriptionMd: String
+}
+
+"Exactly one of pathId / moduleId. Items sharing a position form one step and must share groupType."
+input RoadMapItemInput {
+  position: Int!
+  groupType: GroupType = ALL
+  isRequired: Boolean = true
+  pathId: ID
+  moduleId: ID
+}
 
 "id absent → insert (slug generated from title when omitted); id present → update."
 input PathInput {
@@ -153,6 +218,15 @@ type Mutation {
   completeLesson(lessonId: ID!, pathId: ID): Lesson!
 
   # ---------- author mutations (CONTENT_AUTHOR) ----------
+
+  upsertRoadmap(input: RoadMapInput!): RoadMap!
+  "Replaces the whole item set; positions are renumbered densely from 1."
+  setRoadmapItems(roadmapId: ID!, items: [RoadMapItemInput!]!): RoadMap!
+  "Needs ≥1 item. published=false returns the roadmap to DRAFT."
+  publishRoadmap(id: ID!, published: Boolean = true): RoadMap!
+  archiveRoadmap(id: ID!): RoadMap!
+  deleteRoadmap(id: ID!): Boolean!
+
   upsertPath(input: PathInput!): Path!
   upsertModule(input: ModuleInput!): Module!
   upsertLesson(input: LessonInput!): Lesson!

@@ -41,6 +41,11 @@ public class ModuleRepo {
         return jdbc.query("SELECT " + COLUMNS + " FROM modules m WHERE m.id = ?", MAPPER, id).stream().findFirst();
     }
 
+    public List<Module> findByIds(List<UUID> ids) {
+        if (ids.isEmpty()) return List.of();
+        return jdbc.query("SELECT " + COLUMNS + " FROM modules m WHERE m.id = ANY(?)", MAPPER, (Object) ids.toArray(new UUID[0]));
+    }
+
     /** Author picker: every module, optionally filtered by title. */
     public List<Module> findAll(String search) {
         if (search == null || search.isBlank()) {

@@ -14,6 +14,8 @@ import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.stereotype.Controller;
 
+import graphql.GraphQLContext;
+
 import com.cyberclub.learn.dtos.domain.Enrollment;
 import com.cyberclub.learn.dtos.domain.Lesson;
 import com.cyberclub.learn.dtos.domain.Module;
@@ -44,8 +46,8 @@ public class ProgressResolver {
     // ---------------------------------------------------------------- queries
 
     @QueryMapping
-    public List<Path> myEnrollments() {
-        auth.require(Policies.LEARNER);
+    public List<Path> myEnrollments(GraphQLContext ctx) {
+        Access.learnerSeesDrafts(auth, ctx);
         List<Enrollment> es = progress.myEnrollments();
         Map<UUID, Path> byId = paths.byIds(es.stream().map(Enrollment::pathId).toList());
         return es.stream().map(e -> byId.get(e.pathId())).filter(p -> p != null).toList();

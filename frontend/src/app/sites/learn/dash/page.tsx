@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { getCatalogue, getMyEnrollments } from "@/lib/data/learn";
-import { PathCard, ProgressBar } from "@/components/learn/ui";
+import { getCatalogue, getMyEnrollments, getMyRoadmaps, getRoadmaps } from "@/lib/data/learn";
+import { PathCard, ProgressBar, RoadMapCard } from "@/components/learn/ui";
 import type { Difficulty } from "@/graphql/generated";
 
 export const metadata = { title: "Learn — Cyber Club Portal" };
@@ -18,20 +18,38 @@ export default async function LearnCataloguePage({
     ? (params.difficulty as Difficulty)
     : undefined;
 
-  const [{ paths, error }, enrollments] = await Promise.all([
+  const [{ paths, error }, enrollments, roadmaps, myRoadmaps] = await Promise.all([
     getCatalogue({
       difficulty,
       tag: params.tag || undefined,
       search: params.q || undefined,
     }),
     getMyEnrollments(),
+    getRoadmaps(),
+    getMyRoadmaps(),
   ]);
   const inProgress = enrollments.filter((p) => p.enrollment?.status === "ENROLLED");
+  const mineIds = new Set(myRoadmaps.map((r) => r.id));
+  const otherRoadmaps = roadmaps.filter((r) => !mineIds.has(r.id));
 
   const tags = Array.from(new Set(paths.flatMap((c) => c.tags))).sort();
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10 w-full">
+      {myRoadmaps.length > 0 && (
+        <section className="mb-10">
+          <h2 className="htb-heading text-xl text-htb-text mb-1">
+            <span className="text-htb-green htb-mono">##</span> Your roadmaps
+          </h2>
+          <p className="htb-mono text-xs text-htb-text-dim mb-3">Worked out from the paths and modules you have already started — nothing to enrol in.</p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {myRoadmaps.map((r) => (
+              <RoadMapCard key={r.id} roadmap={r} href={`/roadmaps/${r.slug}`} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {inProgress.length > 0 && (
         <section className="mb-10">
           <h2 className="htb-heading text-xl text-htb-text mb-3">
@@ -63,10 +81,10 @@ export default async function LearnCataloguePage({
             <span className="text-htb-green htb-mono"> [{paths.length}]</span>
           </h1>
           <p className="htb-mono text-sm text-htb-text-muted mt-2">
-            Structured paths: modules of readings and videos. Roadmaps, quizzes and labs arrive in later phases.
+            Structured paths: modules of readings and videos. Follow a roadmap to see how they chain together.
           </p>
         </div>
-        <form className="flex items-center gap-2" action="/">
+        <form className="flex items-center gap-2" action="/dash">
           <input
             name="q"
             defaultValue={params.q ?? ""}
@@ -88,7 +106,7 @@ export default async function LearnCataloguePage({
       {tags.length > 0 && (
         <div className="mb-6 flex flex-wrap gap-2 htb-mono text-xs">
           <Link
-            href="/"
+            href="/dash"
             className={`px-2 py-1 rounded ${!params.tag ? "text-htb-green bg-htb-green/10" : "text-htb-text-muted hover:text-htb-text"}`}
           >
             all
@@ -96,7 +114,7 @@ export default async function LearnCataloguePage({
           {tags.map((t) => (
             <Link
               key={t}
-              href={`/?tag=${encodeURIComponent(t)}`}
+              href={`/dash?tag=${encodeURIComponent(t)}`}
               className={`px-2 py-1 rounded ${params.tag === t ? "text-htb-green bg-htb-green/10" : "text-htb-text-muted hover:text-htb-text"}`}
             >
               #{t}
@@ -125,6 +143,21 @@ export default async function LearnCataloguePage({
           <PathCard key={c.id} path={c} href={`/paths/${c.slug}`} />
         ))}
       </div>
+
+      {otherRoadmaps.length > 0 && (
+        <section className="mt-12">
+          <h2 className="htb-heading text-xl text-htb-text mb-1">
+            <span className="text-htb-green htb-mono">##</span> Roadmaps
+            <span className="text-htb-green htb-mono text-base"> [{otherRoadmaps.length}]</span>
+          </h2>
+          <p className="htb-mono text-xs text-htb-text-dim mb-3">Curated sequences of paths and modules. Pick one and follow it step by step.</p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {otherRoadmaps.map((r) => (
+              <RoadMapCard key={r.id} roadmap={r} href={`/roadmaps/${r.slug}`} />
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

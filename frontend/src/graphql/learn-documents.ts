@@ -137,3 +137,71 @@ export const DELETE_MODULE = /* GraphQL */ `
 export const DELETE_LESSON = /* GraphQL */ `
   mutation DeleteLesson($id: ID!) { deleteLesson(id: $id) }
 `;
+
+// ---------- roadmaps (L3) ----------
+
+const ROADMAP_CARD = /* GraphQL */ `
+  fragment RoadMapCard on RoadMap { id slug title descriptionMd status progress updatedAt }
+`;
+
+const ROADMAP_TREE = /* GraphQL */ `
+  ${ROADMAP_CARD}
+  ${PATH_CARD}
+  fragment RoadMapTree on RoadMap {
+    ...RoadMapCard
+    createdAt
+    items {
+      id position groupType isRequired progress
+      item {
+        __typename
+        ... on Path { ...PathCard }
+        ... on Module {
+          id title descriptionMd
+          paths { id slug title status }
+          myProgress { status progress }
+        }
+      }
+    }
+  }
+`;
+
+export const ROADMAPS = /* GraphQL */ `
+  ${ROADMAP_CARD}
+  query Roadmaps($search: String) { roadmaps(search: $search) { ...RoadMapCard } }
+`;
+
+export const ROADMAP_BY_SLUG = /* GraphQL */ `
+  ${ROADMAP_TREE}
+  query RoadmapBySlug($slug: String!) { roadmap(slug: $slug) { ...RoadMapTree } }
+`;
+
+export const ROADMAP_BY_ID = /* GraphQL */ `
+  ${ROADMAP_TREE}
+  query RoadmapById($id: ID!) { roadmapById(id: $id) { ...RoadMapTree } }
+`;
+
+export const MY_ROADMAPS = /* GraphQL */ `
+  ${ROADMAP_CARD}
+  query MyRoadmaps { myRoadmaps { ...RoadMapCard } }
+`;
+
+export const UPSERT_ROADMAP = /* GraphQL */ `
+  ${ROADMAP_CARD}
+  mutation UpsertRoadmap($input: RoadMapInput!) { upsertRoadmap(input: $input) { ...RoadMapCard } }
+`;
+
+export const SET_ROADMAP_ITEMS = /* GraphQL */ `
+  mutation SetRoadmapItems($roadmapId: ID!, $items: [RoadMapItemInput!]!) { setRoadmapItems(roadmapId: $roadmapId, items: $items) { id } }
+`;
+
+export const PUBLISH_ROADMAP = /* GraphQL */ `
+  mutation PublishRoadmap($id: ID!, $published: Boolean) { publishRoadmap(id: $id, published: $published) { id status } }
+`;
+
+export const ARCHIVE_ROADMAP = /* GraphQL */ `
+  mutation ArchiveRoadmap($id: ID!) { archiveRoadmap(id: $id) { id status } }
+`;
+
+export const DELETE_ROADMAP = /* GraphQL */ `
+  mutation DeleteRoadmap($id: ID!) { deleteRoadmap(id: $id) }
+`;

@@ -10,6 +10,8 @@ import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
 
+import graphql.GraphQLContext;
+
 import com.cyberclub.learn.dtos.domain.Lesson;
 import com.cyberclub.learn.dtos.domain.Module;
 import com.cyberclub.learn.dtos.inputs.LessonInput;
@@ -35,8 +37,8 @@ public class ContentResolver {
     // ---------- queries ----------
 
     @QueryMapping
-    public Lesson lesson(@Argument UUID id) {
-        boolean drafts = Access.learnerSeesDrafts(auth);
+    public Lesson lesson(@Argument UUID id, GraphQLContext ctx) {
+        boolean drafts = Access.learnerSeesDrafts(auth, ctx);
         return lessons.byId(id, drafts);
     }
 
@@ -48,8 +50,9 @@ public class ContentResolver {
     // ---------- author mutations ----------
 
     @QueryMapping("modules")
-    public List<Module> modulesList(@Argument String search) {
+    public List<Module> modulesList(@Argument String search, GraphQLContext ctx) {
         auth.require(Policies.CONTENT_AUTHOR);
+        ctx.put(Access.DRAFTS, true);
         return modules.list(search);
     }
 

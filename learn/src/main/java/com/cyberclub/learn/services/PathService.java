@@ -50,6 +50,16 @@ public class PathService {
         return pathRepo.findByIds(ids).stream().collect(java.util.stream.Collectors.toMap(Path::id, p -> p));
     }
 
+    /** Paths that include each module, grouped for {@code Module.paths}. */
+    public java.util.Map<com.cyberclub.learn.dtos.domain.Module, List<Path>> containing(
+            List<com.cyberclub.learn.dtos.domain.Module> modules, boolean includeUnpublished) {
+        java.util.Map<UUID, List<Path>> byModule = pathRepo.findContaining(
+            modules.stream().map(com.cyberclub.learn.dtos.domain.Module::id).toList(), includeUnpublished);
+        return modules.stream().collect(java.util.stream.Collectors.toMap(
+            java.util.function.Function.identity(), m -> byModule.getOrDefault(m.id(), List.of()),
+            (a, b) -> a, java.util.LinkedHashMap::new));
+    }
+
     private static boolean visible(Path c, boolean includeUnpublished) {
         return includeUnpublished || c.status() == PathStatus.PUBLISHED;
     }

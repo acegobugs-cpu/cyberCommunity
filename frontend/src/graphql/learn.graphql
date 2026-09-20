@@ -192,3 +192,102 @@ mutation DeleteModule($id: ID!) {
 mutation DeleteLesson($id: ID!) {
   deleteLesson(id: $id)
 }
+
+# ---------- roadmaps (L3) ----------
+
+fragment RoadMapCard on RoadMap {
+  id
+  slug
+  title
+  descriptionMd
+  status
+  progress
+  updatedAt
+}
+
+fragment RoadMapTree on RoadMap {
+  ...RoadMapCard
+  createdAt
+  items {
+    id
+    position
+    groupType
+    isRequired
+    progress
+    item {
+      __typename
+      ... on Path {
+        ...PathCard
+      }
+      ... on Module {
+        id
+        title
+        descriptionMd
+        paths {
+          id
+          slug
+          title
+          status
+        }
+        myProgress {
+          status
+          progress
+        }
+      }
+    }
+  }
+}
+
+query Roadmaps($search: String) {
+  roadmaps(search: $search) {
+    ...RoadMapCard
+  }
+}
+
+query RoadmapBySlug($slug: String!) {
+  roadmap(slug: $slug) {
+    ...RoadMapTree
+  }
+}
+
+query RoadmapById($id: ID!) {
+  roadmapById(id: $id) {
+    ...RoadMapTree
+  }
+}
+
+query MyRoadmaps {
+  myRoadmaps {
+    ...RoadMapCard
+  }
+}
+
+mutation UpsertRoadmap($input: RoadMapInput!) {
+  upsertRoadmap(input: $input) {
+    ...RoadMapCard
+  }
+}
+
+mutation SetRoadmapItems($roadmapId: ID!, $items: [RoadMapItemInput!]!) {
+  setRoadmapItems(roadmapId: $roadmapId, items: $items) {
+    id
+  }
+}
+
+mutation PublishRoadmap($id: ID!, $published: Boolean) {
+  publishRoadmap(id: $id, published: $published) {
+    id
+    status
+  }
+}
+
+mutation ArchiveRoadmap($id: ID!) {
+  archiveRoadmap(id: $id) {
+    id
+    status
+  }
+}
+
+mutation DeleteRoadmap($id: ID!) {
+  deleteRoadmap(id: $id)
+}

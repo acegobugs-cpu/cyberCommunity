@@ -37,6 +37,10 @@ public class ModuleService {
         return moduleRepo.findById(id).orElseThrow(() -> new NotFoundException("module not found"));
     }
 
+    public Map<UUID, Module> byIds(List<UUID> ids) {
+        return moduleRepo.findByIds(ids).stream().collect(Collectors.toMap(Module::id, m -> m));
+    }
+
     /** Author picker for reuse. */
     public List<Module> list(String search) {
         return moduleRepo.findAll(search);

@@ -86,6 +86,17 @@ Original plan:
 
 ## L3 — Roadmaps
 
+**Status: done.** As built:
+
+- Migration is **V3** `learn_roadmaps`: `roadmaps(slug, title, description_md, status DRAFT|PUBLISHED|ARCHIVED)`, `roadmap_items(roadmap_id, path_id | module_id, position, group_type ALL|CHOICE, is_required)`. Items point at a **path or a module** (one of the two); items sharing a `position` form one **step**; a target appears at most once per roadmap (partial unique indexes).
+- **Roadmaps are not enrolled.** Progress is a pure function of L2 state — `learn.roadmap_progress(user, roadmap)`: item = enrollment progress / module progress (0 untouched, DROPPED still counts); step = mean of required items (ALL) or best required item (CHOICE); roadmap = mean over steps with ≥1 required item. Non-required items never move the number. `myRoadmaps` = published roadmaps in which the learner has touched any item, most advanced first — this is what lets a student pick a roadmap based on what they have already done.
+- Schema: `roadmaps(search)`, `roadmap(slug)`, `roadmapById`, `myRoadmaps`, `RoadMap{items, progress}`, `RoadMapItem{position, groupType, isRequired, progress, item: Path | Module}`, `Module.paths` (so module items can link somewhere); author `upsertRoadmap`, `setRoadmapItems(roadmapId, items)` (replace-all, validates one-target / no-dup / one groupType per step, renumbers steps densely), `publishRoadmap` (needs ≥1 item), `archiveRoadmap`, `deleteRoadmap`.
+- Learner visibility: draft roadmaps hidden; inside a published roadmap, items whose path is unpublished (or whose module is in no published path) are filtered out. The drafts decision is taken once per request by the top-level resolver and stored in `GraphQLContext` (`Access.DRAFTS`) for nested batch resolvers — no second identity call.
+- Frontend: `learn./dash` shows "Your roadmaps" (myRoadmaps) and "Roadmaps"; `/roadmaps/[slug]` renders steps with ALL/CHOICE/optional labels, a "you are here" marker on the first unfinished required step, path items as `PathCard`, module items linking via `Module.paths[0]`; `/admin` lists/creates roadmaps; `/admin/roadmaps/[id]` edits meta and steps (add step, ALL/CHOICE, pick path or module, required toggle, reorder, save-all).
+- Tests: `LearnRoadmapTest` (4) — ALL/CHOICE/optional arithmetic, unpublished path hidden from USER but visible to ADMIN, myRoadmaps ordering, setRoadmapItems validation + dense renumbering + FORBIDDEN for USER.
+
+Original plan:
+
 - Migration **V4** (`roadmaps`, `roadmap_items`).
 - Schema: `roadmaps`, `roadmap(slug)`, `Roadmap.items`, `Roadmap.progress`; author `upsertRoadmap`, `setRoadmapItems`, `publish(ROADMAP)`.
 - Frontend: roadmap cards on `/learn`, `/learn/roadmaps/[slug]` with ordered courses and rollup; admin roadmap editor (pick courses, order, `required`).
