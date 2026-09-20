@@ -32,7 +32,7 @@ const PATH_TREE = /* GraphQL */ `
     ...PathCard
     createdAt
     modules {
-      id pathId title descriptionMd position
+      id title descriptionMd
       myProgress { status progress completedAt }
       lessons { ...LessonSummary }
     }
@@ -83,7 +83,7 @@ export const DROP_PATH = /* GraphQL */ `
 `;
 
 export const COMPLETE_LESSON = /* GraphQL */ `
-  mutation CompleteLesson($lessonId: ID!) { completeLesson(lessonId: $lessonId) { id completed } }
+  mutation CompleteLesson($lessonId: ID!, $pathId: ID) { completeLesson(lessonId: $lessonId, pathId: $pathId) { id completed } }
 `;
 
 export const UPSERT_PATH = /* GraphQL */ `
@@ -93,8 +93,20 @@ export const UPSERT_PATH = /* GraphQL */ `
 
 export const UPSERT_MODULE = /* GraphQL */ `
   mutation UpsertModule($input: ModuleInput!) {
-    upsertModule(input: $input) { id pathId title descriptionMd position }
+    upsertModule(input: $input) { id title descriptionMd }
   }
+`;
+
+export const MODULE_PICKER = /* GraphQL */ `
+  query ModulePicker($search: String) { modules(search: $search) { id title descriptionMd } }
+`;
+
+export const ADD_MODULE_TO_PATH = /* GraphQL */ `
+  mutation AddModuleToPath($pathId: ID!, $moduleId: ID!) { addModuleToPath(pathId: $pathId, moduleId: $moduleId) { id } }
+`;
+
+export const REMOVE_MODULE_FROM_PATH = /* GraphQL */ `
+  mutation RemoveModuleFromPath($pathId: ID!, $moduleId: ID!) { removeModuleFromPath(pathId: $pathId, moduleId: $moduleId) { id } }
 `;
 
 export const UPSERT_LESSON = /* GraphQL */ `

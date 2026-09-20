@@ -47,6 +47,12 @@ public class ContentResolver {
 
     // ---------- author mutations ----------
 
+    @QueryMapping("modules")
+    public List<Module> modulesList(@Argument String search) {
+        auth.require(Policies.CONTENT_AUTHOR);
+        return modules.list(search);
+    }
+
     @MutationMapping
     public Module upsertModule(@Argument ModuleInput input) {
         auth.require(Policies.CONTENT_AUTHOR);

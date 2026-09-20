@@ -9,6 +9,7 @@ SET search_path TO learn;
 --
 --   completed_lessons  (fact)      user × lesson         → lesson is done or not
 --   module_progress    (derived)   user × module         STARTED → IN_PROGRESS → COMPLETED | DROPPED
+--                                  shared by every path that includes the module
 --   enrollments        (derived)   user × path           ENROLLED → COMPLETED | DROPPED
 --
 -- user_id refers to identity.users (another schema) — no FK by design (AD-1).
@@ -48,14 +49,39 @@ CREATE TABLE completed_lessons (
 CREATE INDEX idx_completed_lessons_lesson ON completed_lessons(lesson_id);
 
 -- -----------------------------------------------------------------------------
--- Recompute one user's progress for one module and for every path that module
--- belongs to. Called from the completed_lessons trigger and callable directly
--- (e.g. after an author adds/removes lessons).
---   module progress = completed lessons / lessons in module
---   path   progress = mean of module progress over the path's modules
---                     (0 for modules the user has not touched)
---   DROPPED rows are left alone; re-enrolling / restarting revives them.
+-- Modules are reusable (path_modules), so module progress is per user × module
+-- and shared by every path that includes the module. Two functions:
+--   recompute_path_progress(user, path)  path progress = mean of module progress
+--                                        over path_modules (0 for untouched)
+--   recompute_progress(user, module)     module progress = completed / lessons,
+--                                        then fan out to every containing path
+-- Called from the completed_lessons trigger and directly (enroll, author edits
+-- to a module's lessons or a path's module set). DROPPED rows keep their status;
+-- re-enrolling / restarting revives them.
 -- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION learn.recompute_path_progress(p_user UUID, p_path UUID)
+RETURNS VOID
+LANGUAGE plpgsql AS $$
+DECLARE
+    v_progress  NUMERIC(5,4);
+BEGIN
+    SELECT COALESCE(ROUND(AVG(COALESCE(mp.progress, 0)), 4), 0) INTO v_progress
+    FROM learn.path_modules pm
+    LEFT JOIN learn.module_progress mp ON mp.module_id = pm.module_id AND mp.user_id = p_user
+    WHERE pm.path_id = p_path;
+
+    UPDATE learn.enrollments
+    SET progress     = v_progress,
+        status       = CASE
+                         WHEN status = 'DROPPED' THEN 'DROPPED'
+                         WHEN v_progress >= 1 THEN 'COMPLETED'
+                         ELSE 'ENROLLED'
+                       END,
+        completed_at = CASE WHEN v_progress >= 1 THEN COALESCE(completed_at, NOW()) ELSE NULL END
+    WHERE user_id = p_user AND path_id = p_path;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION learn.recompute_progress(p_user UUID, p_module UUID)
 RETURNS VOID
 LANGUAGE plpgsql AS $$
@@ -65,8 +91,7 @@ DECLARE
     v_done      INT;
     v_progress  NUMERIC(5,4);
 BEGIN
-    SELECT path_id INTO v_path FROM learn.modules WHERE id = p_module;
-    IF v_path IS NULL THEN
+    IF NOT EXISTS (SELECT 1 FROM learn.modules WHERE id = p_module) THEN
         RETURN;
     END IF;
 
@@ -97,23 +122,10 @@ BEGIN
                          ELSE NULL
                        END;
 
-    -- path (only if enrolled)
-    SELECT COUNT(*) INTO v_total FROM learn.modules WHERE path_id = v_path;
-
-    SELECT COALESCE(ROUND(SUM(COALESCE(mp.progress, 0)) / NULLIF(v_total, 0), 4), 0) INTO v_progress
-    FROM learn.modules m
-    LEFT JOIN learn.module_progress mp ON mp.module_id = m.id AND mp.user_id = p_user
-    WHERE m.path_id = v_path;
-
-    UPDATE learn.enrollments
-    SET progress     = v_progress,
-        status       = CASE
-                         WHEN status = 'DROPPED' THEN 'DROPPED'
-                         WHEN v_progress >= 1 THEN 'COMPLETED'
-                         ELSE 'ENROLLED'
-                       END,
-        completed_at = CASE WHEN v_progress >= 1 THEN COALESCE(completed_at, NOW()) ELSE NULL END
-    WHERE user_id = p_user AND path_id = v_path;
+    -- every path that includes this module (only enrolled rows are touched)
+    FOR v_path IN SELECT path_id FROM learn.path_modules WHERE module_id = p_module LOOP
+        PERFORM learn.recompute_path_progress(p_user, v_path);
+    END LOOP;
 END;
 $$;
 

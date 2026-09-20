@@ -81,13 +81,15 @@ export function EnrollButton({
   );
 }
 
-/** "Mark complete" for READING / VIDEO lessons; auto-advances to `nextHref`. */
+/** "Mark complete" for READING / VIDEO lessons; auto-advances to `nextHref`. `pathId` = the path being browsed (modules are shared). */
 export function CompleteLessonButton({
   lessonId,
+  pathId,
   completed,
   nextHref,
 }: {
   lessonId: string;
+  pathId: string;
   completed: boolean;
   nextHref: string | null;
 }) {
@@ -99,7 +101,7 @@ export function CompleteLessonButton({
     setBusy(true);
     setError(null);
     try {
-      await learnMutate<CompleteLessonMutation, { lessonId: string }>(COMPLETE_LESSON, { lessonId });
+      await learnMutate<CompleteLessonMutation, { lessonId: string; pathId: string }>(COMPLETE_LESSON, { lessonId, pathId });
       if (nextHref) router.push(nextHref);
       else router.refresh();
     } catch (e) {

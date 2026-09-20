@@ -133,10 +133,33 @@ public class PathRepo {
             UPDATE paths c
             SET estimated_minutes = (
                 SELECT COALESCE(SUM(l.estimated_minutes), 0)
-                FROM modules m JOIN lessons l ON l.module_id = m.id
-                WHERE m.path_id = c.id
+                FROM path_modules pm JOIN lessons l ON l.module_id = pm.module_id
+                WHERE pm.path_id = c.id
             ), updated_at = now()
             WHERE c.id = ?
             """, pathId);
+    }
+
+    /** A module's lessons changed: refresh the cache of every path that includes it. */
+    public void refreshEstimatedMinutesForModule(UUID moduleId) {
+        jdbc.update("""
+            UPDATE paths c
+            SET estimated_minutes = (
+                SELECT COALESCE(SUM(l.estimated_minutes), 0)
+                FROM path_modules pm JOIN lessons l ON l.module_id = pm.module_id
+                WHERE pm.path_id = c.id
+            ), updated_at = now()
+            WHERE c.id IN (SELECT path_id FROM path_modules WHERE module_id = ?)
+            """, moduleId);
+    }
+
+    /** PUBLISHED paths that include the module (a learner may reach a module through any of them). */
+    public List<Path> findPublishedContaining(UUID moduleId) {
+        return jdbc.query("""
+            SELECT %s FROM paths
+            WHERE status = 'PUBLISHED'
+              AND id IN (SELECT path_id FROM path_modules WHERE module_id = ?)
+            ORDER BY title
+            """.formatted(COLUMNS), MAPPER, moduleId);
     }
 }

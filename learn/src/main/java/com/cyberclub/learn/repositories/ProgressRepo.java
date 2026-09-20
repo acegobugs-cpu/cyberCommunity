@@ -63,16 +63,20 @@ public class ProgressRepo {
 
     // ---------------------------------------------------------------- enrollments
 
-    /** Enroll, or revive a DROPPED enrollment. Idempotent for an active one. */
+    /**
+     * Enroll, or revive a DROPPED enrollment. Idempotent for an active one.
+     * Progress is recomputed straight away: shared modules may already be done.
+     */
     public Enrollment enroll(UUID userId, UUID pathId) {
-        return jdbc.queryForObject("""
+        jdbc.update("""
             INSERT INTO enrollments (user_id, path_id)
             VALUES (?, ?)
             ON CONFLICT (user_id, path_id) DO UPDATE SET
                 status = CASE WHEN enrollments.status = 'DROPPED' THEN 'ENROLLED' ELSE enrollments.status END,
                 dropped_at = NULL
-            RETURNING %s
-            """.formatted(ENROLLMENT_COLS), ENROLLMENT, userId, pathId);
+            """, userId, pathId);
+        jdbc.queryForObject("SELECT learn.recompute_path_progress(?, ?)", Object.class, userId, pathId);
+        return findEnrollment(userId, pathId).orElseThrow();
     }
 
     public Optional<Enrollment> drop(UUID userId, UUID pathId) {
@@ -150,15 +154,15 @@ public class ProgressRepo {
             UUID.class, userId, (Object) lessonIds.toArray(new UUID[0])));
     }
 
-    /** First lesson (module order, then lesson order) of a path the user has not completed. */
+    /** First lesson (path's module order, then lesson order) of a path the user has not completed. */
     public Optional<UUID> nextLessonId(UUID userId, UUID pathId) {
         return jdbc.queryForList("""
             SELECT l.id
-            FROM lessons l
-            JOIN modules m ON m.id = l.module_id
-            WHERE m.path_id = ?
+            FROM path_modules pm
+            JOIN lessons l ON l.module_id = pm.module_id
+            WHERE pm.path_id = ?
               AND NOT EXISTS (SELECT 1 FROM completed_lessons c WHERE c.user_id = ? AND c.lesson_id = l.id)
-            ORDER BY m.position, l.position
+            ORDER BY pm.position, l.position
             LIMIT 1
             """, UUID.class, pathId, userId).stream().findFirst();
     }
@@ -174,5 +178,13 @@ public class ProgressRepo {
             SELECT learn.recompute_progress(mp.user_id, mp.module_id)
             FROM module_progress mp WHERE mp.module_id = ?
             """, rs -> {}, moduleId);
+    }
+
+    /** A path's module set changed: re-derive every enrollment in it. */
+    public void recomputeAllForPath(UUID pathId) {
+        jdbc.query("""
+            SELECT learn.recompute_path_progress(e.user_id, e.path_id)
+            FROM enrollments e WHERE e.path_id = ?
+            """, rs -> {}, pathId);
     }
 }

@@ -44,7 +44,7 @@ class LearnContentTest extends BaseIntegrationTest {
     }
 
     private String createModule(String pathId, String title) {
-        return admin().document("mutation($c: ID!, $t: String!) { upsertModule(input: { pathId: $c, title: $t }) { id position } }")
+        return admin().document("mutation($c: ID!, $t: String!) { upsertModule(input: { pathId: $c, title: $t }) { id } }")
                 .variable("c", pathId).variable("t", title)
                 .execute().errors().verify()
                 .path("upsertModule.id").entity(String.class).get();
@@ -134,14 +134,13 @@ class LearnContentTest extends BaseIntegrationTest {
         String b = createModule(id, "B");
         String c = createModule(id, "C");
 
-        // valid: reverse
+        // valid: reverse (Path.modules is returned in path order)
         List<Map<String, Object>> after = admin()
-                .document("mutation($c: ID!, $ids: [ID!]!) { reorderModules(pathId: $c, orderedIds: $ids) { modules { id position } } }")
+                .document("mutation($c: ID!, $ids: [ID!]!) { reorderModules(pathId: $c, orderedIds: $ids) { modules { id } } }")
                 .variable("c", id).variable("ids", List.of(c, b, a))
                 .execute().errors().verify()
                 .path("reorderModules.modules").entityList(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {}).get();
         assertThat(after).extracting(m -> m.get("id")).containsExactly(c, b, a);
-        assertThat(after).extracting(m -> m.get("position")).containsExactly(1, 2, 3);
 
         // missing one id
         admin().document("mutation($c: ID!, $ids: [ID!]!) { reorderModules(pathId: $c, orderedIds: $ids) { id } }")

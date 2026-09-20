@@ -36,12 +36,12 @@ public class LessonService {
         this.pathRepo = pathRepo;
     }
 
-    /** Null when missing, or when the owning path is not published and the caller is a learner. */
+    /** Null when missing, or when no path that includes it is published and the caller is a learner. */
     public Lesson byId(UUID id, boolean includeUnpublished) {
         Lesson lesson = lessonRepo.findById(id).orElse(null);
         if (lesson == null) return null;
         if (includeUnpublished) return lesson;
-        return lessonRepo.pathStatusOf(id).filter("PUBLISHED"::equals).isPresent() ? lesson : null;
+        return lessonRepo.inPublishedPath(id) ? lesson : null;
     }
 
     public Map<Module, List<Lesson>> forModules(List<Module> modules) {
@@ -82,7 +82,7 @@ public class LessonService {
             }
             saved = lessonRepo.update(existing.id(), title, type, in.contentMd(), in.videoUrl(), minutes, in.position());
         }
-        pathRepo.refreshEstimatedMinutes(module.pathId());
+        pathRepo.refreshEstimatedMinutesForModule(module.id());
         if (in.id() == null) progressRepo.recomputeAll(module.id()); // new lesson changes everyone's ratio
         return saved;
     }
@@ -99,7 +99,7 @@ public class LessonService {
         boolean deleted = lessonRepo.delete(id);
         List<UUID> rest = lessonRepo.findByModuleIds(List.of(l.moduleId())).stream().map(Lesson::id).toList();
         if (!rest.isEmpty()) lessonRepo.reorder(rest);
-        moduleRepo.findById(l.moduleId()).ifPresent(m -> pathRepo.refreshEstimatedMinutes(m.pathId()));
+        pathRepo.refreshEstimatedMinutesForModule(l.moduleId());
         progressRepo.recomputeAll(l.moduleId());
         return deleted;
     }

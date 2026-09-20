@@ -95,4 +95,18 @@ public class PathResolver {
         modules.reorder(pathId, orderedIds);
         return paths.byId(pathId, true);
     }
+
+    @MutationMapping
+    public Path addModuleToPath(@Argument UUID pathId, @Argument UUID moduleId) {
+        auth.require(Policies.CONTENT_AUTHOR);
+        modules.addToPath(pathId, moduleId);
+        return paths.byId(pathId, true);
+    }
+
+    @MutationMapping
+    public Path removeModuleFromPath(@Argument UUID pathId, @Argument UUID moduleId) {
+        auth.require(Policies.CONTENT_AUTHOR);
+        modules.removeFromPath(pathId, moduleId);
+        return paths.byId(pathId, true);
+    }
 }

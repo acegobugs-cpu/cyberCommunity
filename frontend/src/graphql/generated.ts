@@ -30,12 +30,11 @@ export type LessonType =
   | 'READING'
   | 'VIDEO';
 
-/** position omitted on insert → appended at the end. */
+/** On create, pathId (optional) appends the new module to that path. On update only title/descriptionMd change. */
 export type ModuleInput = {
   descriptionMd?: string | null | undefined;
   id?: string | null | undefined;
-  pathId: string;
-  position?: number | null | undefined;
+  pathId?: string | null | undefined;
   title: string;
 };
 
@@ -71,7 +70,7 @@ export type PathCardFragment = { id: string, slug: string, title: string, descri
 
 export type LessonSummaryFragment = { id: string, moduleId: string, title: string, type: LessonType, position: number, estimatedMinutes: number, completed: boolean };
 
-export type PathTreeFragment = { createdAt: string, id: string, slug: string, title: string, description: string | null, difficulty: Difficulty, tags: Array<string>, status: PathStatus, estimatedMinutes: number, updatedAt: string, modules: Array<{ id: string, pathId: string, title: string, descriptionMd: string | null, position: number, myProgress: { status: ModuleProgressStatus, progress: number, completedAt: string | null } | null, lessons: Array<{ id: string, moduleId: string, title: string, type: LessonType, position: number, estimatedMinutes: number, completed: boolean }> }>, enrollment: { pathId: string, status: EnrollmentStatus, progress: number, enrolledAt: string, completedAt: string | null, nextLessonId: string | null } | null };
+export type PathTreeFragment = { createdAt: string, id: string, slug: string, title: string, description: string | null, difficulty: Difficulty, tags: Array<string>, status: PathStatus, estimatedMinutes: number, updatedAt: string, modules: Array<{ id: string, title: string, descriptionMd: string | null, myProgress: { status: ModuleProgressStatus, progress: number, completedAt: string | null } | null, lessons: Array<{ id: string, moduleId: string, title: string, type: LessonType, position: number, estimatedMinutes: number, completed: boolean }> }>, enrollment: { pathId: string, status: EnrollmentStatus, progress: number, enrolledAt: string, completedAt: string | null, nextLessonId: string | null } | null };
 
 export type MeQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -92,14 +91,14 @@ export type PathBySlugQueryVariables = Exact<{
 }>;
 
 
-export type PathBySlugQuery = { path: { createdAt: string, id: string, slug: string, title: string, description: string | null, difficulty: Difficulty, tags: Array<string>, status: PathStatus, estimatedMinutes: number, updatedAt: string, modules: Array<{ id: string, pathId: string, title: string, descriptionMd: string | null, position: number, myProgress: { status: ModuleProgressStatus, progress: number, completedAt: string | null } | null, lessons: Array<{ id: string, moduleId: string, title: string, type: LessonType, position: number, estimatedMinutes: number, completed: boolean }> }>, enrollment: { pathId: string, status: EnrollmentStatus, progress: number, enrolledAt: string, completedAt: string | null, nextLessonId: string | null } | null } | null };
+export type PathBySlugQuery = { path: { createdAt: string, id: string, slug: string, title: string, description: string | null, difficulty: Difficulty, tags: Array<string>, status: PathStatus, estimatedMinutes: number, updatedAt: string, modules: Array<{ id: string, title: string, descriptionMd: string | null, myProgress: { status: ModuleProgressStatus, progress: number, completedAt: string | null } | null, lessons: Array<{ id: string, moduleId: string, title: string, type: LessonType, position: number, estimatedMinutes: number, completed: boolean }> }>, enrollment: { pathId: string, status: EnrollmentStatus, progress: number, enrolledAt: string, completedAt: string | null, nextLessonId: string | null } | null } | null };
 
 export type PathByIdQueryVariables = Exact<{
   id: string;
 }>;
 
 
-export type PathByIdQuery = { pathById: { createdAt: string, id: string, slug: string, title: string, description: string | null, difficulty: Difficulty, tags: Array<string>, status: PathStatus, estimatedMinutes: number, updatedAt: string, modules: Array<{ id: string, pathId: string, title: string, descriptionMd: string | null, position: number, myProgress: { status: ModuleProgressStatus, progress: number, completedAt: string | null } | null, lessons: Array<{ id: string, moduleId: string, title: string, type: LessonType, position: number, estimatedMinutes: number, completed: boolean }> }>, enrollment: { pathId: string, status: EnrollmentStatus, progress: number, enrolledAt: string, completedAt: string | null, nextLessonId: string | null } | null } | null };
+export type PathByIdQuery = { pathById: { createdAt: string, id: string, slug: string, title: string, description: string | null, difficulty: Difficulty, tags: Array<string>, status: PathStatus, estimatedMinutes: number, updatedAt: string, modules: Array<{ id: string, title: string, descriptionMd: string | null, myProgress: { status: ModuleProgressStatus, progress: number, completedAt: string | null } | null, lessons: Array<{ id: string, moduleId: string, title: string, type: LessonType, position: number, estimatedMinutes: number, completed: boolean }> }>, enrollment: { pathId: string, status: EnrollmentStatus, progress: number, enrolledAt: string, completedAt: string | null, nextLessonId: string | null } | null } | null };
 
 export type LessonByIdQueryVariables = Exact<{
   id: string;
@@ -129,6 +128,7 @@ export type DropPathMutation = { dropPath: { pathId: string, status: EnrollmentS
 
 export type CompleteLessonMutationVariables = Exact<{
   lessonId: string;
+  pathId?: string | null | undefined;
 }>;
 
 
@@ -146,7 +146,30 @@ export type UpsertModuleMutationVariables = Exact<{
 }>;
 
 
-export type UpsertModuleMutation = { upsertModule: { id: string, pathId: string, title: string, descriptionMd: string | null, position: number } };
+export type UpsertModuleMutation = { upsertModule: { id: string, title: string, descriptionMd: string | null } };
+
+export type ModulePickerQueryVariables = Exact<{
+  search?: string | null | undefined;
+}>;
+
+
+export type ModulePickerQuery = { modules: Array<{ id: string, title: string, descriptionMd: string | null }> };
+
+export type AddModuleToPathMutationVariables = Exact<{
+  pathId: string;
+  moduleId: string;
+}>;
+
+
+export type AddModuleToPathMutation = { addModuleToPath: { id: string } };
+
+export type RemoveModuleFromPathMutationVariables = Exact<{
+  pathId: string;
+  moduleId: string;
+}>;
+
+
+export type RemoveModuleFromPathMutation = { removeModuleFromPath: { id: string } };
 
 export type UpsertLessonMutationVariables = Exact<{
   input: LessonInput;

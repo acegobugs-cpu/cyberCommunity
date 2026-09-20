@@ -35,10 +35,10 @@ export default async function LessonPage({
         </Link>
         {enrollment && <ProgressBar value={enrollment.progress} className="mt-3" />}
         <nav className="mt-4 htb-card overflow-hidden text-sm">
-          {path.modules.map((m) => (
+          {path.modules.map((m, mi) => (
             <div key={m.id}>
               <div className="px-4 py-2 bg-htb-bg-elevated border-b border-htb-border htb-mono text-[0.65rem] uppercase tracking-widest text-htb-text-dim">
-                {m.position}. {m.title}
+                {mi + 1}. {m.title}
               </div>
               {m.lessons.map((l) => (
                 <Link
@@ -98,7 +98,7 @@ export default async function LessonPage({
             <span />
           )}
           {completable && path.status === "PUBLISHED" ? (
-            <CompleteLessonButton lessonId={lesson.id} completed={lesson.completed} nextHref={nextHref} />
+            <CompleteLessonButton lessonId={lesson.id} pathId={path.id} completed={lesson.completed} nextHref={nextHref} />
           ) : null}
           {(!completable || lesson.completed) && (nextHref ? (
             <Link href={nextHref} className="htb-button htb-button-secondary">

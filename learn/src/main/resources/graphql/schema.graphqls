@@ -54,16 +54,18 @@ type Path {
   enrollment: Enrollment
 }
 
+"""
+Reusable content unit: a module can appear in several paths. Its order within a
+path is a property of the path (Path.modules is ordered), not of the module.
+"""
 type Module {
   id: ID!
-  pathId: ID!
   title: String!
   descriptionMd: String
-  position: Int!
   createdAt: String!
   updatedAt: String!
   lessons: [Lesson!]!
-  "The caller's progress in this module, null when never started."
+  "The caller's progress in this module (shared across paths), null when never started."
   myProgress: ModuleProgress
 }
 
@@ -99,6 +101,8 @@ type Query {
   lesson(id: ID!): Lesson
   "Paths the caller is enrolled in or has completed (dropped excluded), in-progress first."
   myEnrollments: [Path!]!
+  "Author picker for reusing modules across paths (CONTENT_AUTHOR)."
+  modules(search: String): [Module!]!
 }
 
 # ---------- learner mutations (LEARNER) ----------
@@ -116,13 +120,12 @@ input PathInput {
   tags: [String!] = []
 }
 
-"position omitted on insert → appended at the end."
+"On create, pathId (optional) appends the new module to that path. On update only title/descriptionMd change."
 input ModuleInput {
   id: ID
-  pathId: ID!
+  pathId: ID
   title: String!
   descriptionMd: String
-  position: Int
 }
 
 input LessonInput {
@@ -140,11 +143,14 @@ type Mutation {
   "Idempotent; revives a DROPPED enrollment. Path must be PUBLISHED."
   enroll(pathId: ID!): Enrollment!
   dropPath(pathId: ID!): Enrollment!
-  "Explicit start (also enrolls in the path). Completing a lesson does this implicitly."
-  startModule(moduleId: ID!): ModuleProgress!
+  """
+  Explicit start. Also enrolls in `pathId` when given (must be published and include
+  the module); without it, enrolls only if exactly one published path includes the module.
+  """
+  startModule(moduleId: ID!, pathId: ID): ModuleProgress!
   dropModule(moduleId: ID!): ModuleProgress!
-  "READING / VIDEO only; idempotent; enrolls + starts the module implicitly."
-  completeLesson(lessonId: ID!): Lesson!
+  "READING / VIDEO only; idempotent; starts the module and enrolls implicitly (same pathId rule as startModule)."
+  completeLesson(lessonId: ID!, pathId: ID): Lesson!
 
   # ---------- author mutations (CONTENT_AUTHOR) ----------
   upsertPath(input: PathInput!): Path!
@@ -154,6 +160,10 @@ type Mutation {
   "orderedIds must be exactly the set of the parent's children; positions become 1..n."
   reorderModules(pathId: ID!, orderedIds: [ID!]!): Path!
   reorderLessons(moduleId: ID!, orderedIds: [ID!]!): Module!
+
+  "Append an existing module to a path (idempotent) / unlink it (module and lessons survive)."
+  addModuleToPath(pathId: ID!, moduleId: ID!): Path!
+  removeModuleFromPath(pathId: ID!, moduleId: ID!): Path!
 
   "published=false returns the path to DRAFT."
   publishPath(id: ID!, published: Boolean = true): Path!

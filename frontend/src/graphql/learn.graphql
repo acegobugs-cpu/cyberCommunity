@@ -39,10 +39,8 @@ fragment PathTree on Path {
   createdAt
   modules {
     id
-    pathId
     title
     descriptionMd
-    position
     myProgress {
       status
       progress
@@ -110,8 +108,8 @@ mutation DropPath($pathId: ID!) {
   }
 }
 
-mutation CompleteLesson($lessonId: ID!) {
-  completeLesson(lessonId: $lessonId) {
+mutation CompleteLesson($lessonId: ID!, $pathId: ID) {
+  completeLesson(lessonId: $lessonId, pathId: $pathId) {
     id
     completed
   }
@@ -128,10 +126,28 @@ mutation UpsertPath($input: PathInput!) {
 mutation UpsertModule($input: ModuleInput!) {
   upsertModule(input: $input) {
     id
-    pathId
     title
     descriptionMd
-    position
+  }
+}
+
+query ModulePicker($search: String) {
+  modules(search: $search) {
+    id
+    title
+    descriptionMd
+  }
+}
+
+mutation AddModuleToPath($pathId: ID!, $moduleId: ID!) {
+  addModuleToPath(pathId: $pathId, moduleId: $moduleId) {
+    id
+  }
+}
+
+mutation RemoveModuleFromPath($pathId: ID!, $moduleId: ID!) {
+  removeModuleFromPath(pathId: $pathId, moduleId: $moduleId) {
+    id
   }
 }
 

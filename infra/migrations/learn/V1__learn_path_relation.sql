@@ -26,23 +26,29 @@ CREATE TABLE paths (
 CREATE INDEX idx_paths_status ON paths(status) WHERE archived_at IS NULL;
 CREATE INDEX idx_paths_tags ON paths USING GIN(tags);
 
--- 2. Modules
+-- 2. Modules — reusable content units; ordering lives on path_modules.
 CREATE TABLE modules (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    path_id UUID NOT NULL REFERENCES paths(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     description_md TEXT,
-    position INT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-    -- DEFERRABLE so a reorder can swap positions inside one transaction
-    CONSTRAINT uq_modules_position UNIQUE (path_id, position) DEFERRABLE INITIALLY DEFERRED
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_modules_path_id ON modules(path_id);
+-- 3. Path ↔ Module link (a module may appear in many paths, once per path)
+CREATE TABLE path_modules (
+    path_id UUID NOT NULL REFERENCES paths(id) ON DELETE CASCADE,
+    module_id UUID NOT NULL REFERENCES modules(id) ON DELETE CASCADE,
+    position INT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
--- 3. Lessons
+    PRIMARY KEY (path_id, module_id),
+    CONSTRAINT uq_path_modules_position UNIQUE (path_id, position) DEFERRABLE INITIALLY DEFERRED
+);
+
+CREATE INDEX idx_path_modules_module_id ON path_modules(module_id);
+
+-- 4. Lessons
 CREATE TABLE lessons (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     module_id UUID NOT NULL REFERENCES modules(id) ON DELETE CASCADE,

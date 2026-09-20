@@ -66,6 +66,12 @@ class LearnProgressTest extends BaseIntegrationTest {
             .path("completeLesson.completed").entity(Boolean.class).isEqualTo(true);
     }
 
+    private void complete(String lessonId, String pathId) {
+        learner().document("mutation($id: ID!, $p: ID!) { completeLesson(lessonId: $id, pathId: $p) { id completed } }")
+            .variable("id", lessonId).variable("p", pathId).execute().errors().verify()
+            .path("completeLesson.completed").entity(Boolean.class).isEqualTo(true);
+    }
+
     private Map<String, Object> view(String slug) {
         return learner().document("""
             query($s: String!) { path(slug: $s) {
@@ -209,5 +215,52 @@ class LearnProgressTest extends BaseIntegrationTest {
         Map<String, Object> theirs = as("USER", other).document("query($s: String!) { path(slug: $s) { enrollment { status } modules { lessons { completed } } } }")
             .variable("s", f.slug()).execute().errors().verify().path("path").entity(MAP).get();
         assertThat(enrollment(theirs)).isNull();
+    }
+
+    @Test
+    void shared_module_progress_flows_into_every_path_that_includes_it() {
+        Fixture f = publishedPath();                     // path A: m1(l1a, l1b), m2(l2a)
+
+        // path B reuses m1 and adds its own module with one lesson
+        String slugB = "prog-b-" + UUID.randomUUID().toString().substring(0, 8);
+        String pathB = admin().document("mutation($s: String) { upsertPath(input: { title: \"Shared\", slug: $s }) { id } }")
+            .variable("s", slugB).execute().errors().verify().path("upsertPath.id").entity(String.class).get();
+        admin().document("mutation($p: ID!, $m: ID!) { addModuleToPath(pathId: $p, moduleId: $m) { modules { id } } }")
+            .variable("p", pathB).variable("m", f.m1()).execute().errors().verify()
+            .path("addModuleToPath.modules[*].id").entityList(String.class).containsExactly(f.m1());
+        String mB = module(pathB, "MB");
+        lesson(mB, "LBa");
+        admin().document("mutation($id: ID!) { publishPath(id: $id) { status } }").variable("id", pathB).execute().errors().verify();
+
+        // m1 is now in two published paths → completing without pathId must not guess an enrollment
+        learner().document("mutation($id: ID!) { completeLesson(lessonId: $id) { id } }").variable("id", f.l1a())
+            .execute().errors().verify();
+        assertThat(enrollment(view(f.slug()))).isNull();
+        assertThat(enrollment(view(slugB))).isNull();
+        assertThat(num(moduleProgress(view(f.slug()), f.m1()).get("progress"))).isCloseTo(0.5, within(1e-4));
+
+        // with pathId the enrollment is explicit; the second path is untouched
+        complete(f.l1b(), f.pathId());
+        Map<String, Object> a = view(f.slug());
+        assertThat(moduleProgress(a, f.m1()).get("status")).isEqualTo("COMPLETED");
+        assertThat(num(enrollment(a).get("progress"))).isCloseTo(0.5, within(1e-4));   // mean(1, 0)
+        assertThat(enrollment(view(slugB))).isNull();
+
+        // enrolling in B later picks up the already-finished shared module immediately
+        learner().document("mutation($p: ID!) { enroll(pathId: $p) { status progress } }").variable("p", pathB)
+            .execute().errors().verify().path("enroll.progress").entity(Double.class).satisfies(v -> assertThat(v).isCloseTo(0.5, within(1e-4)));
+        Map<String, Object> b = view(slugB);
+        assertThat(moduleProgress(b, f.m1()).get("status")).isEqualTo("COMPLETED");
+        assertThat(enrollment(b).get("nextLessonId")).isNotNull();
+
+        // unlinking m1 from B re-derives B's progress without touching the module or A
+        admin().document("mutation($p: ID!, $m: ID!) { removeModuleFromPath(pathId: $p, moduleId: $m) { modules { id } } }")
+            .variable("p", pathB).variable("m", f.m1()).execute().errors().verify()
+            .path("removeModuleFromPath.modules[*].id").entityList(String.class).containsExactly(mB);
+        assertThat(num(enrollment(view(slugB)).get("progress"))).isCloseTo(0.0, within(1e-4));
+        assertThat(moduleProgress(view(f.slug()), f.m1()).get("status")).isEqualTo("COMPLETED");
+
+        // USER may not use the author module picker
+        learner().document("{ modules { id } }").execute().errors().expect(e -> e.getErrorType() == ErrorType.FORBIDDEN).verify();
     }
 }

@@ -41,13 +41,15 @@ public class LessonRepo {
     }
 
     /** Status of the path that owns the lesson — used for learner visibility. */
-    public Optional<String> pathStatusOf(UUID lessonId) {
-        return jdbc.query("""
-            SELECT c.status FROM lessons l
-            JOIN modules m ON m.id = l.module_id
-            JOIN paths c ON c.id = m.path_id
-            WHERE l.id = ?
-            """, (rs, i) -> rs.getString("status"), lessonId).stream().findFirst();
+    /** A lesson is visible to learners when any path that includes its module is PUBLISHED. */
+    public boolean inPublishedPath(UUID lessonId) {
+        Integer n = jdbc.queryForObject("""
+            SELECT COUNT(*) FROM lessons l
+            JOIN path_modules pm ON pm.module_id = l.module_id
+            JOIN paths c ON c.id = pm.path_id
+            WHERE l.id = ? AND c.status = 'PUBLISHED'
+            """, Integer.class, lessonId);
+        return n != null && n > 0;
     }
 
     /** Batch load for {@code Module.lessons}. */

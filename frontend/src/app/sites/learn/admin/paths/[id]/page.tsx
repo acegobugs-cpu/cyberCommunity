@@ -8,12 +8,15 @@ import { useAreaUrl } from "@/lib/use-area-url";
 import { learnMutate } from "@/lib/learn/client";
 import { LearnApiError } from "@/lib/learn/graphql";
 import {
+  ADD_MODULE_TO_PATH,
   ARCHIVE_PATH,
   PATH_BY_ID,
   DELETE_LESSON,
   DELETE_MODULE,
   LESSON_BY_ID,
+  MODULE_PICKER,
   PUBLISH_PATH,
+  REMOVE_MODULE_FROM_PATH,
   REORDER_LESSONS,
   REORDER_MODULES,
   UPSERT_PATH,
@@ -24,6 +27,7 @@ import type {
   PathByIdQuery,
   Difficulty,
   LessonType,
+  ModulePickerQuery,
   UpsertLessonMutation,
   UpsertLessonMutationVariables,
   UpsertModuleMutation,
@@ -149,8 +153,9 @@ export default function PathEditorPage() {
               [ids[i], ids[j]] = [ids[j], ids[i]];
               return run("modules reordered", () => learnMutate(REORDER_MODULES, { pathId: path.id, orderedIds: ids }));
             }}
-            onSave={(input) => run("module saved", () => learnMutate<UpsertModuleMutation, UpsertModuleMutationVariables>(UPSERT_MODULE, { input: { id: m.id, pathId: path.id, ...input } }))}
-            onDelete={() => confirm(`Delete module "${m.title}" and its lessons?`) && run("module deleted", () => learnMutate(DELETE_MODULE, { id: m.id }))}
+            onSave={(input) => run("module saved", () => learnMutate<UpsertModuleMutation, UpsertModuleMutationVariables>(UPSERT_MODULE, { input: { id: m.id, ...input } }))}
+            onRemove={() => confirm(`Remove "${m.title}" from this path? The module and its lessons stay available to other paths.`) && run("module removed from path", () => learnMutate(REMOVE_MODULE_FROM_PATH, { pathId: path.id, moduleId: m.id }))}
+            onDelete={() => confirm(`Delete module "${m.title}" and its lessons from EVERY path that uses it?`) && run("module deleted", () => learnMutate(DELETE_MODULE, { id: m.id }))}
             onLessonMove={(li, dir) => {
               const ids = m.lessons.map((x) => x.id);
               const j = li + dir;
@@ -162,6 +167,10 @@ export default function PathEditorPage() {
           />
         ))}
         <NewModule onCreate={(title) => run("module added", () => learnMutate(UPSERT_MODULE, { input: { pathId: path.id, title } }))} />
+        <ExistingModulePicker
+          exclude={path.modules.map((m) => m.id)}
+          onAdd={(moduleId) => run("module added to path", () => learnMutate(ADD_MODULE_TO_PATH, { pathId: path.id, moduleId }))}
+        />
       </div>
     </main>
   );
@@ -238,6 +247,7 @@ function ModuleEditor({
   count,
   onMove,
   onSave,
+  onRemove,
   onDelete,
   onLessonMove,
   onLessonSave,
@@ -248,6 +258,7 @@ function ModuleEditor({
   count: number;
   onMove: (dir: -1 | 1) => Promise<void>;
   onSave: (input: { title: string; descriptionMd: string }) => Promise<void>;
+  onRemove: () => void;
   onDelete: () => void;
   onLessonMove: (lessonIndex: number, dir: -1 | 1) => Promise<void>;
   onLessonSave: (input: LessonForm & { id?: string }) => Promise<void>;
@@ -262,7 +273,7 @@ function ModuleEditor({
     <section className="htb-card overflow-hidden">
       <div className="px-4 py-3 border-b border-htb-border bg-htb-bg-elevated flex items-center gap-2">
         <MoveButtons index={index} count={count} onMove={onMove} />
-        <span className="htb-mono text-xs text-htb-text-dim">{String(m.position).padStart(2, "0")}</span>
+        <span className="htb-mono text-xs text-htb-text-dim">{String(index + 1).padStart(2, "0")}</span>
         {editing ? (
           <input value={title} onChange={(e) => setTitle(e.target.value)} className="htb-input flex-1 !py-1" />
         ) : (
@@ -276,7 +287,8 @@ function ModuleEditor({
         ) : (
           <>
             <button className="htb-button htb-button-ghost !py-1" onClick={() => setEditing(true)}>edit</button>
-            <button className="htb-button htb-button-ghost !py-1 text-htb-red" onClick={onDelete}>delete</button>
+            <button className="htb-button htb-button-ghost !py-1" onClick={onRemove} title="Unlink from this path only">remove</button>
+            <button className="htb-button htb-button-ghost !py-1 text-htb-red" onClick={onDelete} title="Delete from every path">delete</button>
           </>
         )}
       </div>
@@ -298,7 +310,7 @@ function ModuleEditor({
             ) : (
               <div className="flex items-center gap-2 px-4 py-2 hover:bg-htb-bg-hover">
                 <MoveButtons index={li} count={m.lessons.length} onMove={(dir) => onLessonMove(li, dir)} />
-                <span className="htb-mono text-xs text-htb-text-dim w-10">{m.position}.{l.position}</span>
+                <span className="htb-mono text-xs text-htb-text-dim w-10">{index + 1}.{l.position}</span>
                 <span className="flex-1 htb-mono text-sm text-htb-text truncate">{l.title}</span>
                 <LessonTypeBadge value={l.type} />
                 <span className="htb-mono text-[0.65rem] text-htb-text-dim w-14 text-right">{minutes(l.estimatedMinutes)}</span>
@@ -341,6 +353,61 @@ function NewModule({ onCreate }: { onCreate: (title: string) => Promise<void> })
       >
         + Add module
       </button>
+    </div>
+  );
+}
+
+/** Reuse a module that already exists in another path. */
+function ExistingModulePicker({ exclude, onAdd }: { exclude: string[]; onAdd: (moduleId: string) => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [options, setOptions] = useState<ModulePickerQuery["modules"] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    const t = setTimeout(() => {
+      learnMutate<ModulePickerQuery, { search?: string }>(MODULE_PICKER, { search: search || undefined })
+        .then((d) => active && setOptions(d.modules))
+        .catch((e) => active && setError(describe(e)));
+    }, 200);
+    return () => {
+      active = false;
+      clearTimeout(t);
+    };
+  }, [open, search]);
+
+  if (!open) {
+    return (
+      <button className="htb-button htb-button-ghost" onClick={() => setOpen(true)}>
+        + Add existing module
+      </button>
+    );
+  }
+
+  const visible = (options ?? []).filter((m) => !exclude.includes(m.id));
+  return (
+    <div className="htb-card p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="search modules…" className="htb-input flex-1" autoFocus />
+        <button className="htb-button htb-button-ghost" onClick={() => setOpen(false)}>close</button>
+      </div>
+      {error && <div className="htb-mono text-xs text-htb-red">! {error}</div>}
+      {options === null ? (
+        <div className="htb-mono text-xs text-htb-text-dim">loading…</div>
+      ) : visible.length === 0 ? (
+        <div className="htb-mono text-xs text-htb-text-dim">no other modules</div>
+      ) : (
+        <ul className="max-h-64 overflow-y-auto divide-y divide-htb-border">
+          {visible.map((m) => (
+            <li key={m.id} className="flex items-center gap-2 py-2">
+              <span className="flex-1 htb-mono text-sm text-htb-text truncate">{m.title}</span>
+              <button className="htb-button htb-button-secondary !py-1" onClick={() => onAdd(m.id)}>add</button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

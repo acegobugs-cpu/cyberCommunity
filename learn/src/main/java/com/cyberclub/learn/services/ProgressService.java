@@ -67,10 +67,10 @@ public class ProgressService {
     }
 
     @Transactional
-    public ModuleProgress startModule(UUID moduleId) {
-        Module m = modules.findById(moduleId).orElseThrow(() -> new NotFoundException("module not found"));
+    public ModuleProgress startModule(UUID moduleId, UUID pathId) {
+        modules.findById(moduleId).orElseThrow(() -> new NotFoundException("module not found"));
         UUID user = UserContext.getUserId();
-        progress.enroll(user, m.pathId());
+        enrollTarget(moduleId, pathId).ifPresent(p -> progress.enroll(user, p));
         return progress.startModule(user, moduleId);
     }
 
@@ -87,23 +87,37 @@ public class ProgressService {
      * types complete through their own mechanism (quiz pass, lab, review).
      */
     @Transactional
-    public Lesson completeLesson(UUID lessonId) {
+    public Lesson completeLesson(UUID lessonId, UUID pathId) {
         Lesson lesson = lessons.findById(lessonId).orElseThrow(() -> new NotFoundException("lesson not found"));
         switch (lesson.type()) {
             case READING, VIDEO -> { }
             default -> throw new BadRequestException(lesson.type() + " lessons are completed through their own activity");
         }
-        Module m = modules.findById(lesson.moduleId()).orElseThrow(() -> new NotFoundException("module not found"));
-        Path p = paths.findById(m.pathId()).orElseThrow(() -> new NotFoundException("path not found"));
-        if (p.status() != PathStatus.PUBLISHED) {
-            throw new BadRequestException("lesson is not published");
-        }
-
         UUID user = UserContext.getUserId();
-        progress.enroll(user, p.id());
-        progress.startModule(user, m.id());
-        progress.completeLesson(user, lessonId);   // trigger recomputes module + path
+        enrollTarget(lesson.moduleId(), pathId).ifPresent(p -> progress.enroll(user, p));
+        progress.startModule(user, lesson.moduleId());
+        progress.completeLesson(user, lessonId);   // trigger recomputes module + every containing path
         return lesson;
+    }
+
+    /**
+     * Modules are shared between paths, so "which path does an implicit
+     * enrollment go to?" needs an answer: the caller's {@code pathId} when
+     * given (must be published and include the module); otherwise the single
+     * published path that includes the module, or none when it is ambiguous.
+     * Module progress is recorded either way and flows into any existing
+     * enrollment through the trigger.
+     */
+    private Optional<UUID> enrollTarget(UUID moduleId, UUID pathId) {
+        List<Path> published = paths.findPublishedContaining(moduleId);
+        if (published.isEmpty()) throw new BadRequestException("module is not part of any published path");
+        if (pathId == null) {
+            return published.size() == 1 ? Optional.of(published.get(0).id()) : Optional.empty();
+        }
+        if (published.stream().noneMatch(p -> p.id().equals(pathId))) {
+            throw new BadRequestException("module is not part of that published path");
+        }
+        return Optional.of(pathId);
     }
 
     /** Author edited a module's lessons: keep everyone's cached numbers honest. */

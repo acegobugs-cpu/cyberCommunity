@@ -69,10 +69,10 @@ export default async function PathPage({ params }: { params: Promise<{ slug: str
         <span className="text-htb-green htb-mono">##</span> Syllabus
       </h2>
       <div className="space-y-4">
-        {path.modules.map((m) => (
+        {path.modules.map((m, mi) => (
           <section key={m.id} className="htb-card overflow-hidden">
             <div className="px-5 py-3 border-b border-htb-border bg-htb-bg-elevated flex items-center gap-3">
-              <span className="htb-mono text-xs text-htb-text-dim">{String(m.position).padStart(2, "0")}</span>
+              <span className="htb-mono text-xs text-htb-text-dim">{String(mi + 1).padStart(2, "0")}</span>
               <h3 className="htb-heading text-base text-htb-text">{m.title}</h3>
               {m.myProgress && m.myProgress.status !== "DROPPED" && (
                 <ProgressBar value={m.myProgress.progress} className="w-32 ml-auto" />
@@ -92,7 +92,7 @@ export default async function PathPage({ params }: { params: Promise<{ slug: str
                     className="flex items-center gap-3 px-5 py-3 border-b border-htb-border last:border-b-0 hover:bg-htb-bg-hover"
                   >
                     <span className="htb-mono text-xs text-htb-text-dim w-8">
-                      {m.position}.{l.position}
+                      {mi + 1}.{l.position}
                     </span>
                     <span className={`htb-mono text-xs w-4 ${l.completed ? "text-htb-green" : "text-htb-text-dim"}`}>
                       {l.completed ? "✓" : "·"}

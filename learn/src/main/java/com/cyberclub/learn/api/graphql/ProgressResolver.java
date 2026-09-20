@@ -95,9 +95,9 @@ public class ProgressResolver {
     }
 
     @MutationMapping
-    public ModuleProgress startModule(@Argument UUID moduleId) {
+    public ModuleProgress startModule(@Argument UUID moduleId, @Argument UUID pathId) {
         auth.require(Policies.LEARNER);
-        return progress.startModule(moduleId);
+        return progress.startModule(moduleId, pathId);
     }
 
     @MutationMapping
@@ -107,9 +107,9 @@ public class ProgressResolver {
     }
 
     @MutationMapping
-    public Lesson completeLesson(@Argument UUID lessonId) {
+    public Lesson completeLesson(@Argument UUID lessonId, @Argument UUID pathId) {
         auth.require(Policies.LEARNER);
-        return progress.completeLesson(lessonId);
+        return progress.completeLesson(lessonId, pathId);
     }
 
 }
