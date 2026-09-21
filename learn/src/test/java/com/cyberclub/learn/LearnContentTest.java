@@ -102,6 +102,61 @@ class LearnContentTest extends BaseIntegrationTest {
                 .execute().errors().verify().path("lesson.title").entity(String.class).isEqualTo("L1");
     }
 
+    // ---------- lesson document tree (project-based learning) ----------
+
+    @Test
+    void project_lesson_carries_a_doc_tree_and_completes_like_a_reading() {
+        String slug = "proj-" + UUID.randomUUID().toString().substring(0, 8);
+        String pathId = createPath("Build it", slug);
+        String moduleId = createModule(pathId, "Multi-service Java app");
+        String projectId = admin().document("mutation($m: ID!) { upsertLesson(input: { moduleId: $m, title: \"Ship it\", type: PROJECT, contentMd: \"Build the app on your machine.\" }) { id } }")
+                .variable("m", moduleId).execute().errors().verify().path("upsertLesson.id").entity(String.class).get();
+
+        // spec as a folder tree: paths are normalised, order = position, folders implicit
+        List<Map<String, Object>> tree = admin().document("""
+                mutation($l: ID!) { setLessonDocs(lessonId: $l, docs: [
+                  { path: "/README.md/",            title: "Overview",   contentMd: "# What you will build" },
+                  { path: "setup//01-gateway.md",   title: "Gateway",    contentMd: "Spring Cloud Gateway…" },
+                  { path: "setup/02-subdomains.md", title: "Subdomains", contentMd: "Host-based routing…" },
+                  { path: "videos/walkthrough",     title: "Walkthrough", kind: VIDEO, videoUrl: "https://youtu.be/x", contentMd: "notes" }
+                ]) { docs { path kind title position } } }""")
+                .variable("l", projectId).execute().errors().verify()
+                .path("setLessonDocs.docs").entityList(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {}).get();
+        assertThat(tree).extracting(d -> d.get("path")).containsExactly("README.md", "setup/01-gateway.md", "setup/02-subdomains.md", "videos/walkthrough");
+        assertThat(tree).extracting(d -> d.get("position")).containsExactly(1, 2, 3, 4);
+        assertThat(tree.get(3).get("kind")).isEqualTo("VIDEO");
+
+        // validation: duplicate path, DOC without body, VIDEO without url, file-and-folder clash
+        for (String bad : List.of(
+                "[{ path: \"a\", title: \"t\", contentMd: \"x\" }, { path: \"/a/\", title: \"t\", contentMd: \"y\" }]",
+                "[{ path: \"a\", title: \"t\" }]",
+                "[{ path: \"a\", title: \"t\", kind: VIDEO }]",
+                "[{ path: \"a\", title: \"t\", contentMd: \"x\" }, { path: \"a/b\", title: \"t\", contentMd: \"y\" }]")) {
+            admin().document("mutation($l: ID!) { setLessonDocs(lessonId: $l, docs: " + bad + ") { id } }")
+                    .variable("l", projectId).execute().errors().expect(e -> e.getErrorType() == ErrorType.BAD_REQUEST).verify();
+        }
+        // USER may not author
+        user().document("mutation($l: ID!) { setLessonDocs(lessonId: $l, docs: []) { id } }").variable("l", projectId)
+                .execute().errors().expect(e -> e.getErrorType() == ErrorType.FORBIDDEN).verify();
+
+        // learner reads the tree and self-attests completion — no project table, no review
+        publish(pathId);
+        user().document("query($id: ID!) { lesson(id: $id) { type docs { path } completed } }").variable("id", projectId)
+                .execute().errors().verify()
+                .path("lesson.type").entity(String.class).isEqualTo("PROJECT")
+                .path("lesson.docs[*].path").entityList(String.class).hasSize(4)
+                .path("lesson.completed").entity(Boolean.class).isEqualTo(false);
+        user().document("mutation($id: ID!, $p: ID!) { completeLesson(lessonId: $id, pathId: $p) { completed } }")
+                .variable("id", projectId).variable("p", pathId).execute().errors().verify()
+                .path("completeLesson.completed").entity(Boolean.class).isEqualTo(true);
+
+        // replacing the tree with an empty list clears it; the lesson (and its completion) survive
+        admin().document("mutation($l: ID!) { setLessonDocs(lessonId: $l, docs: []) { docs { id } } }").variable("l", projectId)
+                .execute().errors().verify().path("setLessonDocs.docs").entityList(String.class).hasSize(0);
+        user().document("query($id: ID!) { lesson(id: $id) { completed } }").variable("id", projectId)
+                .execute().errors().verify().path("lesson.completed").entity(Boolean.class).isEqualTo(true);
+    }
+
     // ---------- slug ----------
 
     @Test

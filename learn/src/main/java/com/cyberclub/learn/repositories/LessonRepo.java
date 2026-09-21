@@ -1,6 +1,9 @@
 package com.cyberclub.learn.repositories;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -9,6 +12,8 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 import com.cyberclub.learn.dtos.domain.Lesson;
+import com.cyberclub.learn.dtos.domain.LessonDoc;
+import com.cyberclub.learn.dtos.domain.LessonDocKind;
 import com.cyberclub.learn.dtos.domain.LessonType;
 
 @Repository
@@ -97,4 +102,51 @@ public class LessonRepo {
     public boolean delete(UUID id) {
         return jdbc.update("DELETE FROM lessons WHERE id = ?", id) > 0;
     }
+
+    // ---------------------------------------------------------------- lesson_docs (folder tree)
+
+    private static final String DOC_COLUMNS = "id, lesson_id, path, kind, title, content_md, video_url, position, updated_at";
+
+    static final RowMapper<LessonDoc> DOC_MAPPER = (rs, i) -> new LessonDoc(
+        rs.getObject("id", UUID.class),
+        rs.getObject("lesson_id", UUID.class),
+        rs.getString("path"),
+        LessonDocKind.valueOf(rs.getString("kind")),
+        rs.getString("title"),
+        rs.getString("content_md"),
+        rs.getString("video_url"),
+        rs.getInt("position"),
+        rs.getTimestamp("updated_at").toInstant()
+    );
+
+    /** lessonId → docs in position order (every requested id present). */
+    public Map<UUID, List<LessonDoc>> docsFor(List<UUID> lessonIds) {
+        Map<UUID, List<LessonDoc>> out = new LinkedHashMap<>();
+        lessonIds.forEach(id -> out.put(id, new ArrayList<>()));
+        if (lessonIds.isEmpty()) return out;
+        jdbc.query("SELECT " + DOC_COLUMNS + " FROM lesson_docs WHERE lesson_id = ANY(?) ORDER BY lesson_id, position",
+            rs -> { LessonDoc d = DOC_MAPPER.mapRow(rs, 0); out.get(d.lessonId()).add(d); },
+            (Object) lessonIds.toArray(new UUID[0]));
+        return out;
+    }
+
+    /** Replace the whole tree; list order becomes position. */
+    public void replaceDocs(UUID lessonId, List<DocRow> rows) {
+        jdbc.update("DELETE FROM lesson_docs WHERE lesson_id = ?", lessonId);
+        if (rows.isEmpty()) return;
+        jdbc.batchUpdate("""
+            INSERT INTO lesson_docs (lesson_id, path, kind, title, content_md, video_url, position)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, rows, rows.size(), (ps, r) -> {
+                ps.setObject(1, lessonId);
+                ps.setString(2, r.path());
+                ps.setString(3, r.kind().name());
+                ps.setString(4, r.title());
+                ps.setString(5, r.contentMd());
+                ps.setString(6, r.videoUrl());
+                ps.setInt(7, rows.indexOf(r) + 1);
+            });
+    }
+
+    public record DocRow(String path, LessonDocKind kind, String title, String contentMd, String videoUrl) {}
 }

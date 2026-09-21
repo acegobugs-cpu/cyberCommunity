@@ -18,7 +18,7 @@ Every resolver's service method starts with `auth.require(...)` exactly as in Po
 | Policy | Role | Applies to |
 | :-- | :-- | :-- |
 | `LEARNER` = `MEMBER.or(ADMIN)` | `USER` or `ADMIN` | all queries; enroll/complete/attempt/submit/start-lab/submit-flag mutations |
-| `AUTHOR` = `ADMIN` | `ADMIN` | create/update/publish/archive content (incl. project specs); see all workspaces and leave optional notes; `adminLabSessions` |
+| `AUTHOR` = `ADMIN` | `ADMIN` | create/update/publish/archive content (incl. lesson doc trees, quizzes, labs, exercises); `adminLabSessions` |
 
 Visibility rule enforced in repositories, not resolvers: learner queries always add `published = true`; author queries pass `includeUnpublished = true`. Ownership rule: learner mutations operate on `UserContext.get()` only — there is no `userId` argument on them.
 
@@ -35,11 +35,8 @@ enum LessonType { READING VIDEO QUIZ LAB PROJECT }
 enum ProgressStatus { NOT_STARTED STARTED COMPLETED }
 enum LabSessionStatus { STARTING RUNNING STOPPED EXPIRED FAILED }
 enum QuestionKind { SINGLE MULTI }
-# projects (revised 2026-09-21): no grading, no review
-enum Deliverable { REPO_URL WRITEUP BOTH NONE }
-enum ProjectVisibility { PRIVATE PEERS }
-enum ProjectFeedback { NONE OPTIONAL }
-enum ProjectDocKind { DOC VIDEO }
+enum LessonDocKind { DOC VIDEO }                       # folder tree of material on any lesson (2026-09-21)
+enum Verdict { PASS FAIL ERROR TIMEOUT }               # exercises (L7)
 
 # ---------- content ----------
 type Roadmap {
@@ -58,17 +55,16 @@ type Course {
   enrollment: Enrollment      # caller's, null if none
   progress: Float!            # 0..1 for the caller
 }
-type Module {
-  id: ID! title: String! descriptionMd: String position: Int! lessons: [Lesson!]!
-  project: Project            # non-null ⇒ this module IS a project (guided or spec-only)
-}
+type Module { id: ID! title: String! descriptionMd: String position: Int! lessons: [Lesson!]! }
 
 type Lesson {
   id: ID! title: String! type: LessonType! position: Int! estimatedMinutes: Int
   contentMd: String videoUrl: String
-  quiz: Quiz lab: Lab         # PROJECT lessons carry nothing themselves; the project is on the module
+  docs: [LessonDoc!]!         # optional folder tree (spec files, tutorial videos); UI folds `path` into folders
+  quiz: Quiz lab: Lab exercise: Exercise   # PROJECT lessons carry nothing extra: build it yourself, mark it done
   myProgress: ProgressStatus!
 }
+type LessonDoc { id: ID! path: String! kind: LessonDocKind! title: String! contentMd: String videoUrl: String position: Int! }
 
 type Quiz { id: ID! passScore: Int! questions: [Question!]! myBestAttempt: QuizAttempt }
 type Question { id: ID! position: Int! promptMd: String! kind: QuestionKind! points: Int! options: [Option!]! }
@@ -84,20 +80,11 @@ type Lab {
 type LabTask { id: ID! position: Int! promptMd: String! points: Int! required: Boolean! }
 type LabSession { id: ID! status: LabSessionStatus! endpoint: String expiresAt: DateTime failReason: String }
 
-type Project {
-  id: ID! moduleId: ID! title: String! briefMd: String!
-  deliverable: Deliverable! visibility: ProjectVisibility! feedback: ProjectFeedback!
-  docs: [ProjectDoc!]!        # the specification: flat list ordered by position; UI folds `path` into a tree
-  myWorkspace: ProjectWorkspace          # caller's, null until first save
-  deliverableMet: Boolean!               # caller's workspace satisfies `deliverable` (drives the PROJECT lesson's Mark complete)
-  showcase: [ProjectWorkspace!]!         # [] unless visibility = PEERS and caller has started the module
-}
-type ProjectDoc { id: ID! path: String! kind: ProjectDocKind! title: String! contentMd: String videoUrl: String position: Int! }
-type ProjectWorkspace {
-  userId: ID! repoUrl: String writeupMd: String shared: Boolean! updatedAt: DateTime!
-  feedbackMd: String feedbackAt: DateTime          # optional author note; never gates anything
-  user: UserRef                                    # resolved by the frontend from the portal member list (Learn stores only user_id)
-}
+# exercises (L7): code workspace graded by the club's tests via the judge
+type Exercise { id: ID! language: String! editableFiles: [String!]! tasks: [ExerciseTask!]! myWorkspace: ExerciseWorkspace myRuns: [ExerciseRun!]! }
+type ExerciseTask { id: ID! position: Int! promptMd: String! points: Int! required: Boolean! requiresPrevious: Boolean! myBest: Verdict }   # testSelector never exposed
+type ExerciseWorkspace { files: JSON! updatedAt: DateTime! }
+type ExerciseRun { id: ID! taskId: ID! verdict: Verdict! output: String! ranAt: DateTime! }
 type UserRef { id: ID! username: String! }
 
 type Enrollment { enrolledAt: DateTime! completedAt: DateTime }
@@ -110,10 +97,8 @@ type Query {
   course(slug: String!): Course
   lesson(id: ID!): Lesson
   myEnrollments: [Course!]!
-  myProjects: [Project!]!                       # projects the caller has a workspace for (their portfolio)
 
   # AUTHOR
-  projectWorkspaces(projectId: ID!): [ProjectWorkspace!]!   # everyone's workspaces on one project (to leave notes)
   adminLabSessions(status: LabSessionStatus): [AdminLabSession!]!
 }
 type AdminLabSession { session: LabSession! lab: Lab! user: UserRef! startedAt: DateTime! }
@@ -121,12 +106,13 @@ type AdminLabSession { session: LabSession! lab: Lab! user: UserRef! startedAt: 
 # ---------- learner mutations (LEARNER) ----------
 type Mutation {
   enroll(courseId: ID!): Enrollment!
-  completeLesson(lessonId: ID!): Lesson!                 # READING / VIDEO; PROJECT when Project.deliverableMet
+  completeLesson(lessonId: ID!): Lesson!                 # READING / VIDEO / PROJECT (self-attested)
   submitQuiz(quizId: ID!, answers: [AnswerInput!]!): QuizAttempt!
   startLab(labId: ID!): LabSession!
   stopLab(sessionId: ID!): LabSession!
   submitFlag(sessionId: ID!, taskId: ID!, flag: String!): FlagResult!
-  saveWorkspace(projectId: ID!, repoUrl: String, writeupMd: String, shared: Boolean): ProjectWorkspace!   # upsert; `shared` ignored unless visibility = PEERS
+  saveExerciseWorkspace(exerciseId: ID!, files: JSON!): ExerciseWorkspace!   # L7
+  runExerciseTask(taskId: ID!): ExerciseRun!                                  # L7 → judge
 
   # ---------- author mutations (AUTHOR) ----------
   upsertRoadmap(input: RoadmapInput!): Roadmap!
@@ -134,19 +120,18 @@ type Mutation {
   upsertCourse(input: CourseInput!): Course!
   upsertModule(input: ModuleInput!): Module!
   upsertLesson(input: LessonInput!): Lesson!
+  setLessonDocs(lessonId: ID!, docs: [LessonDocInput!]!): Lesson!   # replace-all folder tree; { path, kind, title, contentMd, videoUrl }
   reorder(parentId: ID!, kind: ReorderKind!, orderedIds: [ID!]!): Boolean!
   upsertQuiz(input: QuizInput!): Quiz!                   # questions + options in one payload
   upsertLab(input: LabInput!): Lab!                      # tasks with plaintext flags → hashed server-side
-  upsertProject(input: ProjectInput!): Project!          # { moduleId, title, briefMd, deliverable, visibility, feedback }
-  setProjectDocs(projectId: ID!, docs: [ProjectDocInput!]!): Project!   # replace-all spec tree; { path, kind, title, contentMd, videoUrl }
-  leaveProjectFeedback(projectId: ID!, userId: ID!, feedbackMd: String): ProjectWorkspace!   # only when Project.feedback = OPTIONAL; null clears
+  upsertExercise(input: ExerciseInput!): Exercise!       # L7: template ref, editable files, tasks with test selectors
   publish(kind: PublishKind!, id: ID!, published: Boolean!): Boolean!
   adminStopLab(sessionId: ID!): LabSession!
 }
 
 input AnswerInput { questionId: ID! optionIds: [ID!]! }
 type FlagResult { correct: Boolean! taskId: ID! labComplete: Boolean! lessonProgress: ProgressStatus! }
-enum ReorderKind { ROADMAP_ITEMS MODULES LESSONS QUESTIONS TASKS PROJECT_DOCS }
+enum ReorderKind { ROADMAP_ITEMS MODULES LESSONS QUESTIONS TASKS }
 enum PublishKind { ROADMAP COURSE }
 # *Input types mirror the tables in 01-domain-model.md; `id` optional → insert, present → update.*
 ```
@@ -155,7 +140,7 @@ Plan 00's `createCourse` / `createLesson` are removed in L1 (breaking change; th
 
 ## 4. Resolver conventions
 
-- One `@Controller` per aggregate (`RoadmapResolver`, `CourseResolver`, `LessonResolver`, `QuizResolver`, `LabResolver`, `ProjectResolver`, `AdminResolver`).
+- One `@Controller` per aggregate (`RoadmapResolver`, `CourseResolver`, `LessonResolver` (incl. `docs`), `QuizResolver`, `LabResolver`, `ExerciseResolver`, `AdminResolver`).
 - Nested lists use `@BatchMapping` (Spring for GraphQL's DataLoader) — `Course.modules`, `Module.lessons`, `Lesson.myProgress`, `Roadmap.items` — to remove the N+1 the baseline has.
 - Caller-specific fields (`progress`, `myProgress`, `mySession`, `enrollment`) read `UserContext.get()`; they are `null`/`NOT_STARTED` for authors previewing.
 - Inputs validated with `jakarta.validation` on input records; `BadRequestException` on violation.

@@ -11,6 +11,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.cyberclub.learn.dtos.domain.Lesson;
+import com.cyberclub.learn.dtos.domain.LessonDoc;
+import com.cyberclub.learn.dtos.domain.LessonDocKind;
+import com.cyberclub.learn.dtos.inputs.LessonDocInput;
 import com.cyberclub.learn.dtos.domain.LessonType;
 import com.cyberclub.learn.dtos.domain.Module;
 import com.cyberclub.learn.dtos.inputs.LessonInput;
@@ -91,6 +94,57 @@ public class LessonService {
     public void reorder(UUID moduleId, List<UUID> orderedIds) {
         ModuleService.validateReorder(new HashSet<>(lessonRepo.idsForModule(moduleId)), orderedIds, "lesson");
         lessonRepo.reorder(orderedIds);
+    }
+
+    // ---------- document tree ----------
+
+    /** lessonId → docs for {@code Lesson.docs}. */
+    public Map<Lesson, List<LessonDoc>> docsFor(List<Lesson> lessons) {
+        Map<UUID, List<LessonDoc>> byLesson = lessonRepo.docsFor(lessons.stream().map(Lesson::id).toList());
+        return lessons.stream().collect(Collectors.toMap(
+            Function.identity(), l -> byLesson.getOrDefault(l.id(), List.of()), (a, b) -> a, java.util.LinkedHashMap::new));
+    }
+
+    /**
+     * Replaces a lesson's document tree. Paths are normalised (trimmed, no
+     * leading/trailing slashes, single slashes) and must be unique; DOC rows
+     * need contentMd, VIDEO rows need videoUrl. A path may not be both a file
+     * and a folder ("a" and "a/b").
+     */
+    @Transactional
+    public Lesson setDocs(UUID lessonId, List<LessonDocInput> docs) {
+        Lesson lesson = lessonRepo.findById(lessonId).orElseThrow(() -> new NotFoundException("lesson not found"));
+        List<LessonRepo.DocRow> rows = new java.util.ArrayList<>();
+        java.util.Set<String> paths = new HashSet<>();
+        for (LessonDocInput in : docs == null ? List.<LessonDocInput>of() : docs) {
+            String path = normalisePath(in.path());
+            if (!paths.add(path)) throw new BadRequestException("duplicate doc path: " + path);
+            LessonDocKind kind = in.kind() == null ? LessonDocKind.DOC : in.kind();
+            String title = PathService.required(in.title(), "doc title (" + path + ")");
+            if (kind == LessonDocKind.DOC && (in.contentMd() == null || in.contentMd().isBlank())) {
+                throw new BadRequestException("DOC " + path + " needs contentMd");
+            }
+            if (kind == LessonDocKind.VIDEO && (in.videoUrl() == null || in.videoUrl().isBlank())) {
+                throw new BadRequestException("VIDEO " + path + " needs videoUrl");
+            }
+            rows.add(new LessonRepo.DocRow(path, kind, title, in.contentMd(), in.videoUrl()));
+        }
+        for (String p : paths) {
+            if (paths.stream().anyMatch(q -> q.startsWith(p + "/"))) {
+                throw new BadRequestException("path is both a file and a folder: " + p);
+            }
+        }
+        lessonRepo.replaceDocs(lesson.id(), rows);
+        return lesson;
+    }
+
+    static String normalisePath(String raw) {
+        if (raw == null || raw.isBlank()) throw new BadRequestException("doc path is required");
+        String p = raw.trim().replaceAll("/{2,}", "/").replaceAll("(^/|/$)", "");
+        if (p.isEmpty() || p.contains("..") || p.chars().anyMatch(c -> c < 0x20)) {
+            throw new BadRequestException("invalid doc path: " + raw);
+        }
+        return p;
     }
 
     @Transactional

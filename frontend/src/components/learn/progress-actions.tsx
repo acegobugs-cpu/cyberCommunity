@@ -81,17 +81,19 @@ export function EnrollButton({
   );
 }
 
-/** "Mark complete" for READING / VIDEO lessons; auto-advances to `nextHref`. `pathId` = the path being browsed (modules are shared). */
+/** "Mark complete" for READING / VIDEO / PROJECT lessons; auto-advances to `nextHref`. `pathId` = the path being browsed (modules are shared). */
 export function CompleteLessonButton({
   lessonId,
   pathId,
   completed,
   nextHref,
+  label = "Mark complete",
 }: {
   lessonId: string;
   pathId: string;
   completed: boolean;
   nextHref: string | null;
+  label?: string;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -120,7 +122,7 @@ export function CompleteLessonButton({
   return (
     <div className="flex items-center gap-3">
       <button disabled={busy} onClick={complete} className="htb-button htb-button-primary disabled:opacity-50">
-        {busy ? "saving…" : nextHref ? "Mark complete & continue" : "Mark complete"} <span className="htb-mono">✓</span>
+        {busy ? "saving…" : nextHref ? `${label} & continue` : label} <span className="htb-mono">✓</span>
       </button>
       {error && <span className="htb-mono text-xs text-htb-red">! {error}</span>}
     </div>

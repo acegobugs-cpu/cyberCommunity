@@ -109,6 +109,7 @@ type Lesson {
   id: ID!
   moduleId: ID!
   title: String!
+  "PROJECT = \"build this on your own machine\"; completes like READING. Sharing the result is Community's job."
   type: LessonType!
   contentMd: String
   videoUrl: String
@@ -119,6 +120,24 @@ type Lesson {
   completed: Boolean!
   "Present on QUIZ lessons once the author has built one."
   quiz: Quiz
+  "Optional folder tree of extra material (spec files, tutorial videos), ordered by position; fold `path` into a tree."
+  docs: [LessonDoc!]!
+}
+
+enum LessonDocKind { DOC VIDEO }
+
+"One node of a lesson's document tree. Folders are implicit from the slash-separated path."
+type LessonDoc {
+  id: ID!
+  lessonId: ID!
+  "e.g. `setup/01-gateway.md`, `videos/02-routing`"
+  path: String!
+  kind: LessonDocKind!
+  title: String!
+  contentMd: String
+  videoUrl: String
+  position: Int!
+  updatedAt: String!
 }
 
 # ---------- quizzes (L4) ----------
@@ -262,6 +281,15 @@ input LessonInput {
   position: Int
 }
 
+"DOC needs contentMd, VIDEO needs videoUrl. Paths are unique per lesson; list order becomes position."
+input LessonDocInput {
+  path: String!
+  kind: LessonDocKind = DOC
+  title: String!
+  contentMd: String
+  videoUrl: String
+}
+
 "Full payload: questions and options are replaced wholesale. Positions follow list order."
 input QuizInput {
   lessonId: ID!
@@ -298,7 +326,7 @@ type Mutation {
   """
   startModule(moduleId: ID!, pathId: ID): ModuleProgress!
   dropModule(moduleId: ID!): ModuleProgress!
-  "READING / VIDEO only; idempotent; starts the module and enrolls implicitly (same pathId rule as startModule)."
+  "READING / VIDEO / PROJECT (self-attested); idempotent; starts the module and enrolls implicitly (same pathId rule as startModule)."
   completeLesson(lessonId: ID!, pathId: ID): Lesson!
   """
   Grades and records an attempt (append-only). passed = score >= passScore, which
@@ -319,6 +347,8 @@ type Mutation {
   upsertPath(input: PathInput!): Path!
   upsertModule(input: ModuleInput!): Module!
   upsertLesson(input: LessonInput!): Lesson!
+  "Replaces the lesson's whole document tree."
+  setLessonDocs(lessonId: ID!, docs: [LessonDocInput!]!): Lesson!
   "Creates or replaces the quiz of a QUIZ lesson. Past attempts are kept."
   upsertQuiz(input: QuizInput!): Quiz!
 

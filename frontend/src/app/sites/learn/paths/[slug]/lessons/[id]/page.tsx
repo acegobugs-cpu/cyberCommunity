@@ -6,6 +6,7 @@ import { MarkdownView } from "@/components/learn/markdown-view";
 import { VideoEmbed } from "@/components/learn/video-embed";
 import { CompleteLessonButton } from "@/components/learn/progress-actions";
 import { QuizRunner } from "@/components/learn/quiz-runner";
+import { DocTree } from "@/components/learn/doc-tree";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export default async function LessonPage({
   const prev = idx > 0 ? flat[idx - 1] : null;
   const next = idx < flat.length - 1 ? flat[idx + 1] : null;
   const nextHref = next ? `/paths/${path.slug}/lessons/${next.id}` : null;
-  const completable = lesson.type === "READING" || lesson.type === "VIDEO";
+  const completable = lesson.type === "READING" || lesson.type === "VIDEO" || lesson.type === "PROJECT";
   const enrollment = path.enrollment && path.enrollment.status !== "DROPPED" ? path.enrollment : null;
 
   return (
@@ -76,13 +77,26 @@ export default async function LessonPage({
           </div>
         )}
 
+        {lesson.type === "PROJECT" && (
+          <div className="htb-card border-htb-purple/40 p-4 mb-6 htb-mono text-xs text-htb-text-muted">
+            <span className="text-htb-purple">project</span> — build this on your own machine, in your own repo. The spec is below; when you are done, mark it complete.
+            Want feedback or to show it off? Post it in the community.
+          </div>
+        )}
+
         {lesson.contentMd ? (
           <div className="htb-card p-6">
             <MarkdownView source={lesson.contentMd} />
           </div>
-        ) : lesson.type === "READING" ? (
+        ) : lesson.type === "READING" || (lesson.type === "PROJECT" && lesson.docs.length === 0) ? (
           <div className="htb-card p-6 htb-mono text-xs text-htb-text-dim">this lesson has no content yet</div>
         ) : null}
+
+        {lesson.docs.length > 0 && (
+          <div className={lesson.contentMd ? "mt-6" : ""}>
+            <DocTree docs={lesson.docs} />
+          </div>
+        )}
 
         {lesson.type === "QUIZ" &&
           (lesson.quiz ? (
@@ -93,7 +107,7 @@ export default async function LessonPage({
             <div className="htb-card border-htb-amber/40 p-4 mt-6 htb-mono text-xs text-htb-amber">! this quiz has not been built yet</div>
           ))}
 
-        {lesson.type !== "READING" && lesson.type !== "VIDEO" && lesson.type !== "QUIZ" && (
+        {lesson.type !== "READING" && lesson.type !== "VIDEO" && lesson.type !== "QUIZ" && lesson.type !== "PROJECT" && (
           <div className="htb-card border-htb-amber/40 p-4 mt-6 htb-mono text-xs text-htb-amber">
             ! {lesson.type.toLowerCase()} lessons are not playable yet (arrives in a later Learn phase)
           </div>
@@ -108,7 +122,13 @@ export default async function LessonPage({
             <span />
           )}
           {completable && path.status === "PUBLISHED" ? (
-            <CompleteLessonButton lessonId={lesson.id} pathId={path.id} completed={lesson.completed} nextHref={nextHref} />
+            <CompleteLessonButton
+              lessonId={lesson.id}
+              pathId={path.id}
+              completed={lesson.completed}
+              nextHref={nextHref}
+              label={lesson.type === "PROJECT" ? "I built it" : "Mark complete"}
+            />
           ) : null}
           {(!completable || lesson.completed) && (nextHref ? (
             <Link href={nextHref} className="htb-button htb-button-secondary">

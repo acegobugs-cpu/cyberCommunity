@@ -88,6 +88,30 @@ query LessonById($id: ID!) {
     quiz {
       ...QuizFields
     }
+    docs {
+      ...LessonDocFields
+    }
+  }
+}
+
+# ---------- lesson document tree (project-based learning) ----------
+
+fragment LessonDocFields on LessonDoc {
+  id
+  path
+  kind
+  title
+  contentMd
+  videoUrl
+  position
+}
+
+mutation SetLessonDocs($lessonId: ID!, $docs: [LessonDocInput!]!) {
+  setLessonDocs(lessonId: $lessonId, docs: $docs) {
+    id
+    docs {
+      ...LessonDocFields
+    }
   }
 }
 

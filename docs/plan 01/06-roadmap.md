@@ -17,11 +17,12 @@ gantt
     L5 Project-based learning                :l5, after l4, 2
     section Hands-on
     L6 Labs + lab-runner (Go)                :l6, after l3, 4
+    L7 Exercises: code workspace + judge     :l7, after l6, 3
     section Finish
-    L7 Polish, seed, snapshot                :l7, after l6, 1
+    L8 Polish, seed, snapshot                :l8, after l7, 1
 ```
 
-L3 and L4 are independent after L2; L6 can start once L3 is done (labs are lessons; roadmaps only affect navigation).
+L3 and L4 are independent after L2; L6 can start once L3 is done (labs are lessons; roadmaps only affect navigation). L7 needs L6a (the runner) and is the first phase that executes learner code.
 
 ---
 
@@ -127,25 +128,24 @@ Original plan:
 
 **Done when:** a USER fails a quiz at 60 %, retries, passes at 80 %, and the lesson flips to completed; the author sees attempt counts.
 
-## L5 — Project-based learning *(revised 2026-09-21; replaces "Projects & review")*
+## L5 — Project-based learning *(revised twice on 2026-09-21; final design below — **done**)*
 
-**Decision:** projects are things learners **build on their own machine in their own repo**, following a specification the club provides. There is **no grading, no approval queue, no rubric**. Completion is self-attested once the declared deliverable (repo URL / write-up) is recorded. Peers may **see** each other's builds when the author allows it and the learner opts in; peers do not assess. Authors may leave an optional note; it gates nothing.
+**Decision:** a project is **just a lesson**. `PROJECT` is a lesson type that means "build this on your own machine, in your own repo"; it completes exactly like `READING` (self-attested). What a project needs that a plain lesson lacked is a **folder tree of material** — a specification split into folders/files, a series of tutorial videos — and that is a property of *content*, not of projects, so it was added to **every** lesson. Nothing is graded, nothing is submitted, nothing is reviewed. Showing your build to others and getting feedback is the **Community** service's job — that is why it exists. Learn stores no repo URLs, no workspaces, no showcase.
 
-- Migration **V5** (real sequence): `projects(module_id UNIQUE, title, brief_md, deliverable REPO_URL|WRITEUP|BOTH|NONE, visibility PRIVATE|PEERS, feedback NONE|OPTIONAL)`, `project_docs(path, kind DOC|VIDEO, title, content_md, video_url, position)`, `project_workspaces(user_id, project_id, repo_url, writeup_md, shared, feedback_md, feedback_by, feedback_at)` — see [03-data-and-migrations.md](03-data-and-migrations.md#v6--projects-phase-l5). No `project_submissions`.
-- **The module is the project.** Two shapes, one model:
-  - *Guided*: the module's lessons walk through the build step by step (`READING`/`VIDEO`: "1. gateway skeleton", "2. host-based routing", …) and end in one `PROJECT` lesson ("ship it").
-  - *Spec-only*: the module has a single `PROJECT` lesson; everything the learner needs is the **specification** — a tree of documents rendered like a repository (folders/subfolders/files) and/or a series of **tutorial videos** — and they do all the work outside the app.
-- Schema: `Module.project`, `Project{docs, myWorkspace, deliverableMet, showcase}`, `ProjectDoc`, `ProjectWorkspace`, `myProjects`; learner `saveWorkspace(projectId, repoUrl, writeupMd, shared)`; `completeLesson` accepts `PROJECT` lessons iff `deliverableMet` (`BAD_REQUEST` with the missing item otherwise) and then follows the normal `completed_lessons` → trigger path; author `upsertProject`, `setProjectDocs` (replace-all tree), `projectWorkspaces(projectId)`, `leaveProjectFeedback` (only when `feedback = OPTIONAL`).
-- Visibility is a **two-key lock**: `projects.visibility = PEERS` (author) **and** `workspaces.shared = true` (learner). Default closed on both. The showcase is readable only by learners who have a `module_progress` row for the module — you must have started the project to browse others' builds. Workspaces are otherwise visible only to their owner and to authors.
-- Publish guard: a module containing a `PROJECT` lesson needs a `projects` row (same rule as quizzes); a module has at most one `PROJECT` lesson.
-- Names in the showcase: Learn stores only `user_id`; the frontend enriches from the portal member list (`/api/members`). No identity batch endpoint needed for L5.
-- Frontend: `ProjectSpecViewer` (file-tree pane + document/video pane, deep-linkable `?doc=path`) inside the `PROJECT` lesson; `ProjectWorkspaceCard` pinned in the sidebar on every lesson of a project module; `/learn/projects` portfolio; `/paths/[slug]/modules/[id]/showcase`; admin `ProjectForm` + `SpecTreeEditor` on the module in `/admin/paths/[id]`; `/admin/projects/[id]/workspaces` for optional notes.
-- Tests: `deliverable` enforcement (`REPO_URL` blocks completion without a URL; `NONE` never blocks); two-key visibility (author PEERS + learner shared, each alone hides); started-module gate on `showcase`; feedback never changes completion; a USER cannot read another's unshared workspace; spec tree replace-all preserves workspaces; publish guard.
+- **No project tables.** The earlier `projects` / `project_docs` / `project_workspaces` design (and the original `project_submissions` review queue) were dropped: a deliverable check is self-attestation with extra steps, and sharing belongs in Community. **No V5**; instead **V1 gained `lesson_docs`** (the dev DB is reset): `lesson_docs(lesson_id, path, kind DOC|VIDEO, title, content_md, video_url, position)`, `UNIQUE (lesson_id, path)`, DOC needs `content_md`, VIDEO needs `video_url`. `path` is slash-separated (`setup/01-gateway.md`, `videos/02-routing`); folders are implicit from the segments.
+- **Two shapes, zero new concepts:** *guided* = a module whose `READING`/`VIDEO` lessons walk through the build step by step and end in a `PROJECT` lesson; *spec-only* = a single `PROJECT` lesson whose doc tree *is* the specification, and the learner does everything outside the app.
+- Schema: `Lesson.docs: [LessonDoc!]!` on every lesson type, `LessonDoc{path, kind, title, contentMd, videoUrl, position}`; author `setLessonDocs(lessonId, docs)` (replace-all; normalises paths, rejects duplicates, `..`, a path that is both file and folder, DOC without body, VIDEO without URL). `completeLesson` accepts `PROJECT`. No publish guard — a project with no docs is an author's choice, not an invalid state.
+- Frontend: `components/learn/doc-tree.tsx` — repository-style two-pane viewer (folders fold from `path`, DOC → markdown, VIDEO → player + notes), selection in `?doc=<path>` so a spec page is linkable; rendered under `contentMd` on any lesson that has docs. `PROJECT` lessons get a magenta banner ("build this on your own machine… post it in the community") and the button reads **"I built it"**. Admin: `components/learn/doc-tree-editor.tsx` behind a **docs** toggle on every lesson row in `/admin/paths/[id]` (flat rows with path/title/kind, inline markdown or video URL, reorder, client-side validation mirror, save-all).
+- Tests: `LearnContentTest.project_lesson_carries_a_doc_tree_and_completes_like_a_reading` — path normalisation + ordering, the four validation rejections, FORBIDDEN for USER, learner reads the tree and completes the PROJECT lesson, emptying the tree keeps the lesson and its completion.
+- **What a personal code workspace is *not*:** "finish the repo layer of this scaffold, tests already present" is an **exercise**, not a project — it needs the platform to hold the code and run the club's tests against it, i.e. code execution. That is the reserved `EXERCISE` lesson type and lands in **L7** on top of the lab-runner and the judge (see below).
 
-**Done when:** an author publishes a spec-only project ("multi-service Java web app with subdomains") as a folder tree of markdown plus two tutorial videos; a USER browses the tree, builds it locally, records their repo URL, marks the project complete and the module/path progress moves; a second USER who has started the module sees the first one's shared repo in the showcase, while a third who hasn't cannot.
+**Done when:** an author creates a `PROJECT` lesson "Multi-service Java web app with subdomains", attaches a doc tree (`README.md`, `setup/01-gateway.md`, `setup/02-subdomains.md`, `videos/walkthrough`) and publishes; a USER browses the tree like a repo, deep-links a file, builds it locally, clicks "I built it", and module/path/roadmap progress move. *(Met by the test above.)*
 
-<details><summary>Original L5 (superseded)</summary>
+<details><summary>Superseded L5 designs</summary>
 
+**Second draft (same day):** `projects(module_id, deliverable, visibility, feedback)` + `project_docs` + `project_workspaces(repo_url, shared, feedback)`; completion gated on a deliverable; two-key peer showcase; optional author notes. Dropped because the deliverable gate is not a real check, and workspaces/showcase/notes duplicate Community.
+
+**Original:**
 - Migration **V6**.
 - Schema: `Project`, `ProjectSubmission`, `submitProject`, `mySubmissions`; author `upsertProject`, `submissionQueue`, `reviewSubmission`. State machine enforced in `ProjectService`; `APPROVED` → lesson `COMPLETED`.
 - Identity: add `GET /private/api/users?ids=` batch lookup (Plan 00 follow-up) and `UserRef` resolution with a 60 s cache.
@@ -176,10 +176,25 @@ Original plan:
 
 **Done when (L6b):** two USERs start the same lab, each gets a different endpoint, cannot reach the other's, submit their own per-session flags, the lab lesson completes for both, and both instances are destroyed at TTL with `adminLabSessions` reflecting it.
 
-## L7 — Polish, seed content, snapshot
+## L7 — Exercises: personal code workspace + judge *(added 2026-09-21)*
+
+*The "finish the repo layer of this scaffold" idea. A project (L5) is built on the learner's machine and nobody checks it; an **exercise** is built **in the platform** against a scaffold the club prepared, and the club's **tests** check it. That difference — the platform holds the code and runs untrusted code — is why this is its own phase on top of the lab-runner, and why it uses the `EXERCISE` lesson type reserved in V1.*
+
+- **Shape:** `EXERCISE` lesson → ordered **tasks** ("1. implement `UserRepo.findByEmail`", "2. make `UserServiceTest` pass", …) over **one workspace per learner** that persists across tasks and sessions. Each task names a test selector; a task passes when the judge reports `PASS` for that selector against the learner's current workspace. `required` tasks all passing → `completed_lessons` → the usual V2 trigger. `requires_previous` lets task N depend on N−1.
+- Migration: `exercises(lesson_id UNIQUE, template_ref, language, run_image, cpu_millis, memory_mb, timeout_s)`, `exercise_tasks(exercise_id, position, prompt_md, test_selector, points, required, requires_previous)`, `exercise_workspaces(user_id, exercise_id, files JSONB /*path→content, learner-editable subset only*/, updated_at)`, `exercise_runs(id, user_id, task_id, verdict PASS|FAIL|ERROR|TIMEOUT, output, ran_at)` append-only (like `quiz_attempts`).
+- **Editor decision:** thin editor + judge (Monaco in the frontend, files in `exercise_workspaces`, "Run tests" → judge copies template + learner files into a fresh container → `mvn -o test -Dtest=<selector>` → verdict + trimmed output). One short-lived container per run, nothing idle, state is rows in Postgres. A full browser IDE (code-server via the runner) is a possible later "open in IDE" button on the same workspace, not the baseline — it costs ~0.5–1 GB RAM per active learner.
+- **Judge (Python, per plan 00):** `POST /runs {image, files, command, limits}` → runs through the lab-runner's isolation (own network, no egress, CPU/mem/time caps, read-only template layer), returns `{verdict, exitCode, stdout, stderr, durationMs}`. Knows nothing about lessons or users. Template images are **pre-warmed** (`mvn dependency:go-offline` baked in; offline at run time) — a cold JVM test run is 30–60 s and unusable as a feedback loop.
+- Schema: `Lesson.exercise`, `Exercise{tasks, myWorkspace, myRuns}`, `ExerciseTask{promptMd, points, required, myBest: Verdict}`, learner `saveWorkspace(exerciseId, files)`, `runTask(taskId)`; author `upsertExercise` (template + tasks). Test selectors and the template's hidden files are never sent to learners.
+- This is also where the L4-deferred "LeetCode / debugging / run this project's tests" questions land: an exercise with one task.
+- Frontend: `ExerciseWorkspace` (file tabs from the editable subset, Monaco, "Run tests" per task, verdict + output pane, task checklist), admin `ExerciseForm` (template ref, editable file list, tasks with selectors).
+- Tests: judge contract (fake judge in Learn tests, like `FakeIdentity`), required/optional task completion arithmetic, `requires_previous` ordering, runs append-only, hidden files never serialised, timeout → `TIMEOUT` verdict not an error.
+
+**Done when:** an author publishes "finish the repo layer" with a Spring scaffold (handler + service present, repo stubbed, tests present); a USER edits `UserRepo.java` in the browser, runs the task's tests, sees a red then green verdict, the task ticks, and after the last required task the `EXERCISE` lesson completes.
+
+## L8 — Polish, seed content, snapshot
 
 - `@BatchMapping` audit (no N+1 in the catalogue and course pages); simple `search` on courses (`ILIKE` on title/tags).
-- Seed script: one roadmap, two paths, a quiz, a spec-only project (folder tree + one video), the hello-flag lab (`infra/seed/learn/*.graphql` executed via a small Node script against the BFF as ADMIN).
+- Seed script: one roadmap, two paths, a quiz, a `PROJECT` lesson with a doc tree (folder + one video), one exercise, the hello-flag lab (`infra/seed/learn/*.graphql` executed via a small Node script against the BFF as ADMIN).
 - Playwright smoke suite replacing `browser-test.mjs`/`selenium-test.mjs`.
 - `docs/timeline/<date>/` snapshot for Learn + lab-runner; `gaps.md`; update `context.md` (ports 9010, new rules: runner only via Learn, Docker socket only in runner).
 
@@ -191,8 +206,8 @@ Original plan:
 
 | Item | Where |
 | :-- | :-- |
-| `EXERCISE` lessons graded by the Python judge | Plan 02 (Challenge) exposes the judge; Learn adds the lesson type afterwards |
+| Full browser IDE (code-server) per learner on top of L7 workspaces | after L7, if the thin editor proves limiting |
 | Multi-container labs, WireGuard access, team instances | Plan 02 extends the lab-runner |
-| Lesson comments/discussion | Plan 03 (Community) |
+| Lesson comments/discussion; sharing built projects for feedback | Plan 03 (Community) |
 | Video upload/transcoding, image uploads for markdown | media pipeline plan |
 | Certificates, badges, XP | Challenge/Portal gamification |

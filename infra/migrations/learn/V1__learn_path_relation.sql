@@ -66,3 +66,34 @@ CREATE TABLE lessons (
 );
 
 CREATE INDEX idx_lessons_module_id ON lessons(module_id);
+
+-- 5. Lesson documents — an optional folder tree of extra material on ANY lesson.
+--    `content_md` stays the lesson's main body; docs are the "repository view"
+--    below it: a project specification split into folders/files, a set of
+--    tutorial videos, appendices to a long reading… `path` is slash-separated
+--    ("setup/01-gateway.md", "videos/02-routing"); folders are implicit from the
+--    segments. A DOC row is markdown, a VIDEO row is a URL plus optional notes.
+--    PROJECT lessons ("build this on your own machine, in your own repo") are
+--    ordinary lessons that usually carry such a tree; they have no table of
+--    their own — sharing the result is the Community service's job.
+CREATE TABLE lesson_docs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lesson_id UUID NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+    path TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'DOC' CHECK (kind IN ('DOC', 'VIDEO')),
+    title VARCHAR(255) NOT NULL,
+    content_md TEXT,
+    video_url TEXT,
+    position INT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT uq_lesson_docs_path UNIQUE (lesson_id, path),
+    CONSTRAINT uq_lesson_docs_position UNIQUE (lesson_id, position) DEFERRABLE INITIALLY DEFERRED,
+    CONSTRAINT chk_lesson_doc_body CHECK (
+        (kind = 'DOC'   AND content_md IS NOT NULL) OR
+        (kind = 'VIDEO' AND video_url  IS NOT NULL)
+    )
+);
+
+CREATE INDEX idx_lesson_docs_lesson ON lesson_docs(lesson_id, position);

@@ -68,10 +68,20 @@ const QUIZ_FIELDS = /* GraphQL */ `
   }
 `;
 
+const LESSON_DOC_FIELDS = /* GraphQL */ `
+  fragment LessonDocFields on LessonDoc { id path kind title contentMd videoUrl position }
+`;
+
 export const LESSON_BY_ID = /* GraphQL */ `
   ${LESSON_SUMMARY}
   ${QUIZ_FIELDS}
-  query LessonById($id: ID!) { lesson(id: $id) { ...LessonSummary contentMd videoUrl quiz { ...QuizFields } } }
+  ${LESSON_DOC_FIELDS}
+  query LessonById($id: ID!) { lesson(id: $id) { ...LessonSummary contentMd videoUrl quiz { ...QuizFields } docs { ...LessonDocFields } } }
+`;
+
+export const SET_LESSON_DOCS = /* GraphQL */ `
+  ${LESSON_DOC_FIELDS}
+  mutation SetLessonDocs($lessonId: ID!, $docs: [LessonDocInput!]!) { setLessonDocs(lessonId: $lessonId, docs: $docs) { id docs { ...LessonDocFields } } }
 `;
 
 export const SUBMIT_QUIZ = /* GraphQL */ `

@@ -141,68 +141,82 @@ CREATE TABLE quiz_attempts (
 CREATE INDEX idx_quiz_attempts_user_quiz ON quiz_attempts(user_id, quiz_id);
 ```
 
-## V6 — projects (Phase L5) *(revised 2026-09-21 — project-based learning, no grading; ships as the next real version number, V5 in the current tree)*
+## Projects (Phase L5) — no migration *(final decision 2026-09-21)*
+
+Projects have **no tables**. A `PROJECT` lesson is an ordinary lesson ("build this on your own machine, in your own repo"); its specification is carried by **`lesson_docs`**, which was added to **V1** (the dev DB was reset) because a folder tree of material is useful on any lesson type, not only projects. Sharing/feedback on the built result belongs to the Community service.
 
 ```sql
--- A project belongs to a MODULE (the module is the project). Guided shape: step
--- lessons + one PROJECT lesson. Spec-only shape: a single PROJECT lesson and
--- the whole "how to build it" lives in project_docs (documents + videos); the
--- learner builds on their own machine in their own repo.
-CREATE TABLE projects (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  module_id UUID NOT NULL UNIQUE REFERENCES modules(id) ON DELETE CASCADE,
-  title VARCHAR(255) NOT NULL,
-  brief_md TEXT NOT NULL,
-  deliverable TEXT NOT NULL DEFAULT 'REPO_URL'
-      CHECK (deliverable IN ('REPO_URL','WRITEUP','BOTH','NONE')),   -- what the workspace must hold before "mark complete"
-  visibility  TEXT NOT NULL DEFAULT 'PRIVATE'
-      CHECK (visibility IN ('PRIVATE','PEERS')),                     -- PEERS enables the opt-in showcase
-  feedback    TEXT NOT NULL DEFAULT 'NONE'
-      CHECK (feedback IN ('NONE','OPTIONAL')),                       -- may an author leave a note
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+-- in V1, right after lessons
+CREATE TABLE lesson_docs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lesson_id UUID NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+    path TEXT NOT NULL,                                    -- "setup/01-gateway.md"; folders implicit from segments
+    kind TEXT NOT NULL DEFAULT 'DOC' CHECK (kind IN ('DOC', 'VIDEO')),
+    title VARCHAR(255) NOT NULL,
+    content_md TEXT,                                       -- DOC body / VIDEO notes
+    video_url TEXT,
+    position INT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_lesson_docs_path UNIQUE (lesson_id, path),
+    CONSTRAINT uq_lesson_docs_position UNIQUE (lesson_id, position) DEFERRABLE INITIALLY DEFERRED,
+    CONSTRAINT chk_lesson_doc_body CHECK (
+        (kind = 'DOC'   AND content_md IS NOT NULL) OR
+        (kind = 'VIDEO' AND video_url  IS NOT NULL)
+    )
 );
-
--- The specification, rendered like a repository file tree: `path` is
--- slash-separated ("setup/01-gateway.md", "videos/02-routing"); folders are
--- implicit from the segments. A doc is markdown, a VIDEO is a URL + notes.
-CREATE TABLE project_docs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  path TEXT NOT NULL,
-  kind TEXT NOT NULL DEFAULT 'DOC' CHECK (kind IN ('DOC','VIDEO')),
-  title VARCHAR(255) NOT NULL,
-  content_md TEXT,
-  video_url TEXT,
-  position INT NOT NULL,
-  CONSTRAINT uq_project_docs_path UNIQUE (project_id, path),
-  CONSTRAINT uq_project_docs_position UNIQUE (project_id, position) DEFERRABLE INITIALLY DEFERRED,
-  CONSTRAINT chk_project_doc_body CHECK (
-    (kind = 'DOC'   AND content_md IS NOT NULL) OR
-    (kind = 'VIDEO' AND video_url  IS NOT NULL)
-  )
-);
-
--- One mutable row per learner per project: the living artifact. No status,
--- no reviewer. `shared` is the learner's opt-in and only matters when the
--- project's visibility is PEERS. feedback_* is an optional author note.
-CREATE TABLE project_workspaces (
-  user_id UUID NOT NULL,
-  project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  repo_url TEXT,
-  writeup_md TEXT,
-  shared BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  feedback_md TEXT,
-  feedback_by UUID,
-  feedback_at TIMESTAMPTZ,
-  PRIMARY KEY (user_id, project_id)
-);
-CREATE INDEX idx_project_workspaces_project_shared ON project_workspaces(project_id) WHERE shared;
+CREATE INDEX idx_lesson_docs_lesson ON lesson_docs(lesson_id, position);
 ```
 
-Deliberately absent: `rubric_md`, `status`, `reviewer_id`, `project_submissions`. If snapshots of a workspace per step are ever wanted, add `project_checkpoints(user_id, lesson_id, note_md, created_at)` later; nothing above needs to change.
+Two earlier designs were dropped the same day: a reviewed `project_submissions` queue (grading a capstone by hand), and `projects` + `project_docs` + `project_workspaces` (deliverable gate, peer showcase, author notes). Both put learner-side state in Learn that either isn't a real check or duplicates Community.
+
+## Exercises (Phase L7) — sketch, real version number assigned when built
+
+The code-workspace case: the platform holds a scaffold, the learner edits an allowed subset of files in the browser, and the club's tests are run by the judge inside the lab-runner's isolation.
+
+```sql
+CREATE TABLE exercises (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  lesson_id UUID NOT NULL UNIQUE REFERENCES lessons(id) ON DELETE CASCADE,
+  language TEXT NOT NULL,                        -- java | python | go …
+  template_ref TEXT NOT NULL,                    -- image or archive with the scaffold + tests, pre-warmed deps
+  run_image TEXT NOT NULL,
+  editable_files TEXT[] NOT NULL,                -- the only paths a learner may change
+  cpu_millis INT NOT NULL DEFAULT 1000,
+  memory_mb INT NOT NULL DEFAULT 1024,
+  timeout_s INT NOT NULL DEFAULT 120
+);
+CREATE TABLE exercise_tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  exercise_id UUID NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+  position INT NOT NULL,
+  prompt_md TEXT NOT NULL,
+  test_selector TEXT NOT NULL,                   -- e.g. "UserRepoTest"; never exposed to learners
+  points INT NOT NULL DEFAULT 1,
+  required BOOLEAN NOT NULL DEFAULT TRUE,
+  requires_previous BOOLEAN NOT NULL DEFAULT FALSE,
+  CONSTRAINT uq_exercise_tasks_position UNIQUE (exercise_id, position) DEFERRABLE INITIALLY DEFERRED
+);
+CREATE TABLE exercise_workspaces (               -- one per learner per exercise, shared by all its tasks
+  user_id UUID NOT NULL,
+  exercise_id UUID NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+  files JSONB NOT NULL DEFAULT '{}',             -- path → content, editable subset only
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, exercise_id)
+);
+CREATE TABLE exercise_runs (                     -- append-only, like quiz_attempts
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  task_id UUID NOT NULL REFERENCES exercise_tasks(id) ON DELETE CASCADE,
+  verdict TEXT NOT NULL CHECK (verdict IN ('PASS','FAIL','ERROR','TIMEOUT')),
+  output TEXT NOT NULL,                          -- trimmed stdout/stderr
+  duration_ms INT,
+  ran_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_exercise_runs_user_task ON exercise_runs(user_id, task_id, ran_at DESC);
+```
+
+Completion: every `required` task has a `PASS` run → `completed_lessons` → V2 trigger.
 
 ## V7 — labs (Phase L6)
 

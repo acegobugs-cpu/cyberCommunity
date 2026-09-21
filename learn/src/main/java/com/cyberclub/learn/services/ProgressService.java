@@ -83,14 +83,15 @@ public class ProgressService {
     /**
      * Marks a lesson complete (idempotent). Enrolls in the path and starts the
      * module if needed, so a learner can dive into any published lesson.
-     * Only READING and VIDEO lessons can be completed by the learner; other
-     * types complete through their own mechanism (quiz pass, lab, review).
+     * READING, VIDEO and PROJECT are self-attested (a project is built on the
+     * learner's own machine; the platform only records "I did it"). Other
+     * types complete through their own mechanism (quiz pass, lab, exercise).
      */
     @Transactional
     public Lesson completeLesson(UUID lessonId, UUID pathId) {
         Lesson lesson = lessons.findById(lessonId).orElseThrow(() -> new NotFoundException("lesson not found"));
         switch (lesson.type()) {
-            case READING, VIDEO -> { }
+            case READING, VIDEO, PROJECT -> { }
             default -> throw new BadRequestException(lesson.type() + " lessons are completed through their own activity");
         }
         recordCompletion(lesson, pathId);

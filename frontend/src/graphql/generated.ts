@@ -22,6 +22,19 @@ export type GroupType =
   | 'ALL'
   | 'CHOICE';
 
+/** DOC needs contentMd, VIDEO needs videoUrl. Paths are unique per lesson; list order becomes position. */
+export type LessonDocInput = {
+  contentMd?: string | null | undefined;
+  kind?: LessonDocKind | null | undefined;
+  path: string;
+  title: string;
+  videoUrl?: string | null | undefined;
+};
+
+export type LessonDocKind =
+  | 'DOC'
+  | 'VIDEO';
+
 export type LessonInput = {
   contentMd?: string | null | undefined;
   estimatedMinutes?: number | null | undefined;
@@ -162,7 +175,17 @@ export type LessonByIdQueryVariables = Exact<{
 }>;
 
 
-export type LessonByIdQuery = { lesson: { contentMd: string | null, videoUrl: string | null, id: string, moduleId: string, title: string, type: LessonType, position: number, estimatedMinutes: number, completed: boolean, quiz: { id: string, lessonId: string, passScore: number, shuffle: boolean, myAttemptCount: number, attemptCount: number | null, passedCount: number | null, myBestAttempt: { id: string, score: number, passed: boolean, submittedAt: string } | null, questions: Array<{ id: string, position: number, promptMd: string, kind: QuestionKind, points: number, options: Array<{ id: string, position: number, textMd: string, correct: boolean | null }> }> } | null } | null };
+export type LessonByIdQuery = { lesson: { contentMd: string | null, videoUrl: string | null, id: string, moduleId: string, title: string, type: LessonType, position: number, estimatedMinutes: number, completed: boolean, quiz: { id: string, lessonId: string, passScore: number, shuffle: boolean, myAttemptCount: number, attemptCount: number | null, passedCount: number | null, myBestAttempt: { id: string, score: number, passed: boolean, submittedAt: string } | null, questions: Array<{ id: string, position: number, promptMd: string, kind: QuestionKind, points: number, options: Array<{ id: string, position: number, textMd: string, correct: boolean | null }> }> } | null, docs: Array<{ id: string, path: string, kind: LessonDocKind, title: string, contentMd: string | null, videoUrl: string | null, position: number }> } | null };
+
+export type LessonDocFieldsFragment = { id: string, path: string, kind: LessonDocKind, title: string, contentMd: string | null, videoUrl: string | null, position: number };
+
+export type SetLessonDocsMutationVariables = Exact<{
+  lessonId: string;
+  docs: Array<LessonDocInput> | LessonDocInput;
+}>;
+
+
+export type SetLessonDocsMutation = { setLessonDocs: { id: string, docs: Array<{ id: string, path: string, kind: LessonDocKind, title: string, contentMd: string | null, videoUrl: string | null, position: number }> } };
 
 export type QuizFieldsFragment = { id: string, lessonId: string, passScore: number, shuffle: boolean, myAttemptCount: number, attemptCount: number | null, passedCount: number | null, myBestAttempt: { id: string, score: number, passed: boolean, submittedAt: string } | null, questions: Array<{ id: string, position: number, promptMd: string, kind: QuestionKind, points: number, options: Array<{ id: string, position: number, textMd: string, correct: boolean | null }> }> };
 

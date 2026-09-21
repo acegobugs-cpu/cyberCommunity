@@ -13,6 +13,8 @@ import org.springframework.stereotype.Controller;
 import graphql.GraphQLContext;
 
 import com.cyberclub.learn.dtos.domain.Lesson;
+import com.cyberclub.learn.dtos.domain.LessonDoc;
+import com.cyberclub.learn.dtos.inputs.LessonDocInput;
 import com.cyberclub.learn.dtos.domain.Module;
 import com.cyberclub.learn.dtos.inputs.LessonInput;
 import com.cyberclub.learn.dtos.inputs.ModuleInput;
@@ -47,6 +49,12 @@ public class ContentResolver {
         return lessons.forModules(parents);
     }
 
+    /** Document tree; parent lesson already passed visibility. */
+    @BatchMapping(typeName = "Lesson", field = "docs")
+    public Map<Lesson, List<LessonDoc>> docs(List<Lesson> parents) {
+        return lessons.docsFor(parents);
+    }
+
     // ---------- author mutations ----------
 
     @QueryMapping("modules")
@@ -66,6 +74,12 @@ public class ContentResolver {
     public Lesson upsertLesson(@Argument LessonInput input) {
         auth.require(Policies.CONTENT_AUTHOR);
         return lessons.upsert(input);
+    }
+
+    @MutationMapping
+    public Lesson setLessonDocs(@Argument UUID lessonId, @Argument List<LessonDocInput> docs) {
+        auth.require(Policies.CONTENT_AUTHOR);
+        return lessons.setDocs(lessonId, docs);
     }
 
     @MutationMapping

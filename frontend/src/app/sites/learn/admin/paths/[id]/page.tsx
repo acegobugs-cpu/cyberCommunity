@@ -35,6 +35,7 @@ import type {
 } from "@/graphql/generated";
 import { MarkdownEditor } from "@/components/learn/markdown-editor";
 import { QuizBuilder } from "@/components/learn/quiz-builder";
+import { DocTreeEditor } from "@/components/learn/doc-tree-editor";
 import { LessonTypeBadge, StatusBadge, minutes } from "@/components/learn/ui";
 
 type Path = NonNullable<PathByIdQuery["pathById"]>;
@@ -270,6 +271,7 @@ function ModuleEditor({
   const [desc, setDesc] = useState(m.descriptionMd ?? "");
   const [editingLesson, setEditingLesson] = useState<Lesson | "new" | null>(null);
   const [quizFor, setQuizFor] = useState<string | null>(null);
+  const [docsFor, setDocsFor] = useState<string | null>(null);
 
   return (
     <section className="htb-card overflow-hidden">
@@ -325,10 +327,18 @@ function ModuleEditor({
                       {quizFor === l.id ? "close quiz" : "quiz"}
                     </button>
                   )}
+                  <button
+                    className={`htb-button htb-button-ghost !py-1 ${docsFor === l.id ? "text-htb-green" : ""}`}
+                    title="document tree (spec files, tutorial videos)"
+                    onClick={() => setDocsFor(docsFor === l.id ? null : l.id)}
+                  >
+                    {docsFor === l.id ? "close docs" : "docs"}
+                  </button>
                   <button className="htb-button htb-button-ghost !py-1" onClick={() => setEditingLesson(l)}>edit</button>
                   <button className="htb-button htb-button-ghost !py-1 text-htb-red" onClick={() => onLessonDelete(l)}>×</button>
                 </div>
                 {l.type === "QUIZ" && quizFor === l.id && <QuizBuilder lessonId={l.id} />}
+                {docsFor === l.id && <DocTreeEditor lessonId={l.id} />}
               </>
             )}
           </li>
