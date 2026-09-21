@@ -2,6 +2,11 @@
 type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
 /** Internal type. DO NOT USE DIRECTLY. */
 export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
+export type AnswerInput = {
+  optionIds: Array<string>;
+  questionId: string;
+};
+
 export type Difficulty =
   | 'ADVANCED'
   | 'BEGINNER'
@@ -49,6 +54,11 @@ export type ModuleProgressStatus =
   | 'IN_PROGRESS'
   | 'STARTED';
 
+export type OptionInput = {
+  correct?: boolean | null | undefined;
+  textMd: string;
+};
+
 /** id absent → insert (slug generated from title when omitted); id present → update. */
 export type PathInput = {
   description?: string | null | undefined;
@@ -68,6 +78,26 @@ export type PathStatus =
   | 'ARCHIVED'
   | 'DRAFT'
   | 'PUBLISHED';
+
+export type QuestionInput = {
+  kind?: QuestionKind | null | undefined;
+  /** SINGLE needs exactly one correct option; MULTI at least one. */
+  options: Array<OptionInput>;
+  points?: number | null | undefined;
+  promptMd: string;
+};
+
+export type QuestionKind =
+  | 'MULTI'
+  | 'SINGLE';
+
+/** Full payload: questions and options are replaced wholesale. Positions follow list order. */
+export type QuizInput = {
+  lessonId: string;
+  passScore?: number | null | undefined;
+  questions: Array<QuestionInput>;
+  shuffle?: boolean | null | undefined;
+};
 
 /** id absent → insert (slug generated from title when omitted); id present → update. Status changes go through publishRoadmap / archiveRoadmap. */
 export type RoadMapInput = {
@@ -132,7 +162,25 @@ export type LessonByIdQueryVariables = Exact<{
 }>;
 
 
-export type LessonByIdQuery = { lesson: { contentMd: string | null, videoUrl: string | null, id: string, moduleId: string, title: string, type: LessonType, position: number, estimatedMinutes: number, completed: boolean } | null };
+export type LessonByIdQuery = { lesson: { contentMd: string | null, videoUrl: string | null, id: string, moduleId: string, title: string, type: LessonType, position: number, estimatedMinutes: number, completed: boolean, quiz: { id: string, lessonId: string, passScore: number, shuffle: boolean, myAttemptCount: number, attemptCount: number | null, passedCount: number | null, myBestAttempt: { id: string, score: number, passed: boolean, submittedAt: string } | null, questions: Array<{ id: string, position: number, promptMd: string, kind: QuestionKind, points: number, options: Array<{ id: string, position: number, textMd: string, correct: boolean | null }> }> } | null } | null };
+
+export type QuizFieldsFragment = { id: string, lessonId: string, passScore: number, shuffle: boolean, myAttemptCount: number, attemptCount: number | null, passedCount: number | null, myBestAttempt: { id: string, score: number, passed: boolean, submittedAt: string } | null, questions: Array<{ id: string, position: number, promptMd: string, kind: QuestionKind, points: number, options: Array<{ id: string, position: number, textMd: string, correct: boolean | null }> }> };
+
+export type SubmitQuizMutationVariables = Exact<{
+  quizId: string;
+  answers: Array<AnswerInput> | AnswerInput;
+  pathId?: string | null | undefined;
+}>;
+
+
+export type SubmitQuizMutation = { submitQuiz: { id: string, score: number, passed: boolean, submittedAt: string, results: Array<{ questionId: string, correct: boolean, pointsEarned: number, points: number }> } };
+
+export type UpsertQuizMutationVariables = Exact<{
+  input: QuizInput;
+}>;
+
+
+export type UpsertQuizMutation = { upsertQuiz: { id: string, lessonId: string, passScore: number, shuffle: boolean, myAttemptCount: number, attemptCount: number | null, passedCount: number | null, myBestAttempt: { id: string, score: number, passed: boolean, submittedAt: string } | null, questions: Array<{ id: string, position: number, promptMd: string, kind: QuestionKind, points: number, options: Array<{ id: string, position: number, textMd: string, correct: boolean | null }> }> } };
 
 export type MyEnrollmentsQueryVariables = Exact<{ [key: string]: never; }>;
 

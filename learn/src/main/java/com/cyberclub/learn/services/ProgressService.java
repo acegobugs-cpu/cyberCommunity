@@ -93,11 +93,26 @@ public class ProgressService {
             case READING, VIDEO -> { }
             default -> throw new BadRequestException(lesson.type() + " lessons are completed through their own activity");
         }
+        recordCompletion(lesson, pathId);
+        return lesson;
+    }
+
+    /**
+     * The shared "this lesson is now done" step used by manual completion and
+     * by typed activities (a passed quiz, later labs/projects): implicit enroll
+     * + module start, then the completed_lessons insert that fires the trigger.
+     */
+    @Transactional
+    public void recordCompletion(Lesson lesson, UUID pathId) {
         UUID user = UserContext.getUserId();
         enrollTarget(lesson.moduleId(), pathId).ifPresent(p -> progress.enroll(user, p));
         progress.startModule(user, lesson.moduleId());
-        progress.completeLesson(user, lessonId);   // trigger recomputes module + every containing path
-        return lesson;
+        progress.completeLesson(user, lesson.id());   // trigger recomputes module + every containing path
+    }
+
+    /** Throws BAD_REQUEST unless the lesson's module sits in a published path (and in {@code pathId} when given). */
+    public void requireReachable(UUID moduleId, UUID pathId) {
+        enrollTarget(moduleId, pathId);
     }
 
     /**

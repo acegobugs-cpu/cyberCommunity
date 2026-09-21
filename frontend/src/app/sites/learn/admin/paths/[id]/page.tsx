@@ -34,6 +34,7 @@ import type {
   UpsertModuleMutationVariables,
 } from "@/graphql/generated";
 import { MarkdownEditor } from "@/components/learn/markdown-editor";
+import { QuizBuilder } from "@/components/learn/quiz-builder";
 import { LessonTypeBadge, StatusBadge, minutes } from "@/components/learn/ui";
 
 type Path = NonNullable<PathByIdQuery["pathById"]>;
@@ -268,6 +269,7 @@ function ModuleEditor({
   const [title, setTitle] = useState(m.title);
   const [desc, setDesc] = useState(m.descriptionMd ?? "");
   const [editingLesson, setEditingLesson] = useState<Lesson | "new" | null>(null);
+  const [quizFor, setQuizFor] = useState<string | null>(null);
 
   return (
     <section className="htb-card overflow-hidden">
@@ -308,15 +310,26 @@ function ModuleEditor({
                 onSave={async (input) => { await onLessonSave({ id: l.id, ...input }); setEditingLesson(null); }}
               />
             ) : (
-              <div className="flex items-center gap-2 px-4 py-2 hover:bg-htb-bg-hover">
-                <MoveButtons index={li} count={m.lessons.length} onMove={(dir) => onLessonMove(li, dir)} />
-                <span className="htb-mono text-xs text-htb-text-dim w-10">{index + 1}.{l.position}</span>
-                <span className="flex-1 htb-mono text-sm text-htb-text truncate">{l.title}</span>
-                <LessonTypeBadge value={l.type} />
-                <span className="htb-mono text-[0.65rem] text-htb-text-dim w-14 text-right">{minutes(l.estimatedMinutes)}</span>
-                <button className="htb-button htb-button-ghost !py-1" onClick={() => setEditingLesson(l)}>edit</button>
-                <button className="htb-button htb-button-ghost !py-1 text-htb-red" onClick={() => onLessonDelete(l)}>×</button>
-              </div>
+              <>
+                <div className="flex items-center gap-2 px-4 py-2 hover:bg-htb-bg-hover">
+                  <MoveButtons index={li} count={m.lessons.length} onMove={(dir) => onLessonMove(li, dir)} />
+                  <span className="htb-mono text-xs text-htb-text-dim w-10">{index + 1}.{l.position}</span>
+                  <span className="flex-1 htb-mono text-sm text-htb-text truncate">{l.title}</span>
+                  <LessonTypeBadge value={l.type} />
+                  <span className="htb-mono text-[0.65rem] text-htb-text-dim w-14 text-right">{minutes(l.estimatedMinutes)}</span>
+                  {l.type === "QUIZ" && (
+                    <button
+                      className={`htb-button htb-button-ghost !py-1 ${quizFor === l.id ? "text-htb-green" : ""}`}
+                      onClick={() => setQuizFor(quizFor === l.id ? null : l.id)}
+                    >
+                      {quizFor === l.id ? "close quiz" : "quiz"}
+                    </button>
+                  )}
+                  <button className="htb-button htb-button-ghost !py-1" onClick={() => setEditingLesson(l)}>edit</button>
+                  <button className="htb-button htb-button-ghost !py-1 text-htb-red" onClick={() => onLessonDelete(l)}>×</button>
+                </div>
+                {l.type === "QUIZ" && quizFor === l.id && <QuizBuilder lessonId={l.id} />}
+              </>
             )}
           </li>
         ))}

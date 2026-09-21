@@ -117,6 +117,64 @@ type Lesson {
   createdAt: String!
   updatedAt: String!
   completed: Boolean!
+  "Present on QUIZ lessons once the author has built one."
+  quiz: Quiz
+}
+
+# ---------- quizzes (L4) ----------
+
+enum QuestionKind { SINGLE MULTI }
+
+type Quiz {
+  id: ID!
+  lessonId: ID!
+  "Percent (0..100) needed to pass."
+  passScore: Int!
+  shuffle: Boolean!
+  questions: [Question!]!
+  "The caller's highest-scoring attempt, null before the first submit."
+  myBestAttempt: QuizAttempt
+  "How many times the caller has submitted."
+  myAttemptCount: Int!
+  "Authors only (null for learners): attempts by everyone."
+  attemptCount: Int
+  "Authors only (null for learners): distinct learners who passed."
+  passedCount: Int
+}
+
+type Question {
+  id: ID!
+  position: Int!
+  promptMd: String!
+  kind: QuestionKind!
+  points: Int!
+  options: [Option!]!
+}
+
+type Option {
+  id: ID!
+  position: Int!
+  textMd: String!
+  "Authors only — always null for learners, even after they pass."
+  correct: Boolean
+}
+
+type QuizAttempt {
+  id: ID!
+  quizId: ID!
+  "Percent of points earned, 0..100."
+  score: Int!
+  passed: Boolean!
+  submittedAt: String!
+  "Per-question outcome of this attempt (which ones you got right, not which options were right)."
+  results: [QuestionResult!]!
+}
+
+type QuestionResult {
+  questionId: ID!
+  correct: Boolean!
+  pointsEarned: Int!
+  points: Int!
 }
 
 # ---------- queries (LEARNER; unpublished content visible to CONTENT_AUTHOR only) ----------
@@ -204,6 +262,32 @@ input LessonInput {
   position: Int
 }
 
+"Full payload: questions and options are replaced wholesale. Positions follow list order."
+input QuizInput {
+  lessonId: ID!
+  passScore: Int = 70
+  shuffle: Boolean = true
+  questions: [QuestionInput!]!
+}
+
+input QuestionInput {
+  promptMd: String!
+  kind: QuestionKind = SINGLE
+  points: Int = 1
+  "SINGLE needs exactly one correct option; MULTI at least one."
+  options: [OptionInput!]!
+}
+
+input OptionInput {
+  textMd: String!
+  correct: Boolean = false
+}
+
+input AnswerInput {
+  questionId: ID!
+  optionIds: [ID!]!
+}
+
 type Mutation {
   "Idempotent; revives a DROPPED enrollment. Path must be PUBLISHED."
   enroll(pathId: ID!): Enrollment!
@@ -216,6 +300,11 @@ type Mutation {
   dropModule(moduleId: ID!): ModuleProgress!
   "READING / VIDEO only; idempotent; starts the module and enrolls implicitly (same pathId rule as startModule)."
   completeLesson(lessonId: ID!, pathId: ID): Lesson!
+  """
+  Grades and records an attempt (append-only). passed = score >= passScore, which
+  also completes the lesson (same implicit enroll / pathId rule as completeLesson).
+  """
+  submitQuiz(quizId: ID!, answers: [AnswerInput!]!, pathId: ID): QuizAttempt!
 
   # ---------- author mutations (CONTENT_AUTHOR) ----------
 
@@ -230,6 +319,8 @@ type Mutation {
   upsertPath(input: PathInput!): Path!
   upsertModule(input: ModuleInput!): Module!
   upsertLesson(input: LessonInput!): Lesson!
+  "Creates or replaces the quiz of a QUIZ lesson. Past attempts are kept."
+  upsertQuiz(input: QuizInput!): Quiz!
 
   "orderedIds must be exactly the set of the parent's children; positions become 1..n."
   reorderModules(pathId: ID!, orderedIds: [ID!]!): Path!

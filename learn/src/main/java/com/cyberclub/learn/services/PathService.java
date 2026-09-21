@@ -18,16 +18,19 @@ import com.cyberclub.learn.exceptions.BadRequestException;
 import com.cyberclub.learn.exceptions.NotFoundException;
 import com.cyberclub.learn.repositories.PathRepo;
 import com.cyberclub.learn.repositories.ModuleRepo;
+import com.cyberclub.learn.repositories.QuizRepo;
 
 @Service
 public class PathService {
 
     private final PathRepo pathRepo;
     private final ModuleRepo moduleRepo;
+    private final QuizRepo quizRepo;
 
-    public PathService(PathRepo pathRepo, ModuleRepo moduleRepo) {
+    public PathService(PathRepo pathRepo, ModuleRepo moduleRepo, QuizRepo quizRepo) {
         this.pathRepo = pathRepo;
         this.moduleRepo = moduleRepo;
+        this.quizRepo = quizRepo;
     }
 
     // ---------- reads ----------
@@ -104,6 +107,12 @@ public class PathService {
         }
         if (published && moduleRepo.idsForPath(id).isEmpty()) {
             throw new BadRequestException("a path needs at least one module before it can be published");
+        }
+        if (published) {
+            List<UUID> missing = quizRepo.quizLessonsWithoutQuiz(id);
+            if (!missing.isEmpty()) {
+                throw new BadRequestException(missing.size() + " QUIZ lesson(s) have no quiz yet; build them before publishing");
+            }
         }
         return pathRepo.setStatus(id, published ? PathStatus.PUBLISHED : PathStatus.DRAFT);
     }

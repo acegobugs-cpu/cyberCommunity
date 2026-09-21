@@ -85,6 +85,61 @@ query LessonById($id: ID!) {
     ...LessonSummary
     contentMd
     videoUrl
+    quiz {
+      ...QuizFields
+    }
+  }
+}
+
+# ---------- quizzes (L4) ----------
+
+fragment QuizFields on Quiz {
+  id
+  lessonId
+  passScore
+  shuffle
+  myAttemptCount
+  attemptCount
+  passedCount
+  myBestAttempt {
+    id
+    score
+    passed
+    submittedAt
+  }
+  questions {
+    id
+    position
+    promptMd
+    kind
+    points
+    options {
+      id
+      position
+      textMd
+      correct
+    }
+  }
+}
+
+mutation SubmitQuiz($quizId: ID!, $answers: [AnswerInput!]!, $pathId: ID) {
+  submitQuiz(quizId: $quizId, answers: $answers, pathId: $pathId) {
+    id
+    score
+    passed
+    submittedAt
+    results {
+      questionId
+      correct
+      pointsEarned
+      points
+    }
+  }
+}
+
+mutation UpsertQuiz($input: QuizInput!) {
+  upsertQuiz(input: $input) {
+    ...QuizFields
   }
 }
 

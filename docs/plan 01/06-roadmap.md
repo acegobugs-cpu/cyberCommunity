@@ -106,6 +106,19 @@ Original plan:
 
 ## L4 — Quizzes
 
+**Status: done (multiple choice only).** As built:
+
+- Migration is **V4** `learn_quizzes` (numbering follows the real sequence V1–V3): `quizzes(lesson_id UNIQUE, pass_score, shuffle)`, `quiz_questions(position, prompt_md, kind SINGLE|MULTI, points)`, `quiz_options(position, text_md, correct)`, `quiz_attempts(user_id, answers JSONB, score 0..100, passed)` append-only.
+- Grading (`QuizService.grade`, pure): SINGLE right iff exactly one option chosen and it is the correct one; MULTI right iff chosen set == correct set (no partial credit; superset is wrong); unanswered = wrong; `score = round(earned / total × 100)`; `passed = score >= passScore`. A pass calls `ProgressService.recordCompletion` — the same insert into `completed_lessons` a manual "mark complete" does, so module/path progress rolls forward through the V2 trigger. `completeLesson` still refuses QUIZ lessons.
+- Schema: `Lesson.quiz`, `Quiz{passScore, shuffle, questions, myBestAttempt, myAttemptCount, attemptCount?, passedCount?}`, `Question`, `Option{correct?}`, `QuizAttempt{score, passed, results[]}`; learner `submitQuiz(quizId, answers, pathId?)` (same implicit-enroll rule as `completeLesson`); author `upsertQuiz(input)` (full payload, replace-all; validates ≥2 options, SINGLE exactly one correct, MULTI ≥1, points ≥1, lesson must be QUIZ).
+- **`Option.correct` is a nullable field that resolves to null for learners** (via the `Access.DRAFTS` context flag) rather than a separate author type — one schema, one fragment, no leak: the test asserts null for USER even after passing. `attemptCount`/`passedCount` are author-only the same way.
+- Publish guard in `PathService.publish`: any QUIZ lesson reachable from the path without a quiz → `BAD_REQUEST`.
+- Frontend: `components/learn/quiz-runner.tsx` (intro with best attempt → one question per step, radio/checkbox by kind, progress dots, submit → result screen with per-question ✓/✗ and points, retry / next lesson); `components/learn/quiz-builder.tsx` inline in `/admin/paths/[id]` on QUIZ rows (pass mark, shuffle, questions, kind, points, options with correct toggle, client-side validation mirror, attempt counters).
+- Tests: `LearnQuizTest` (5) — grading table incl. partial/superset/multi-select-on-SINGLE/unanswered, exact-threshold pass flips `Lesson.completed` and moves path progress, key hidden from USER and visible to ADMIN, append-only + best-attempt + rebuild keeps history, publish guard + author validation.
+- **Deferred, recorded 2026-09-21:** LeetCode-style / debugging / "run this project's tests" questions need a sandbox (Python judge + Go lab-runner) and are out of L4 scope; if added later they become a `CODE` question kind delegating to the judge, reusing `quiz_attempts` unchanged.
+
+Original plan:
+
 - Migration **V5**.
 - Schema: `Quiz`, `Question`, `Option` (no `correct`), `submitQuiz`, `Quiz.myBestAttempt`; author `upsertQuiz` (full payload). Grading in `QuizService`: per-question points, `SINGLE` exact, `MULTI` exact set; `passed = score ≥ passScore` → lesson `COMPLETED`.
 - Publish guard: a course with a `QUIZ` lesson lacking a quiz cannot be published.

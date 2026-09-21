@@ -5,6 +5,7 @@ import { LessonTypeBadge, ProgressBar, minutes } from "@/components/learn/ui";
 import { MarkdownView } from "@/components/learn/markdown-view";
 import { VideoEmbed } from "@/components/learn/video-embed";
 import { CompleteLessonButton } from "@/components/learn/progress-actions";
+import { QuizRunner } from "@/components/learn/quiz-runner";
 
 export const dynamic = "force-dynamic";
 
@@ -83,7 +84,16 @@ export default async function LessonPage({
           <div className="htb-card p-6 htb-mono text-xs text-htb-text-dim">this lesson has no content yet</div>
         ) : null}
 
-        {lesson.type !== "READING" && lesson.type !== "VIDEO" && (
+        {lesson.type === "QUIZ" &&
+          (lesson.quiz ? (
+            <div className={lesson.contentMd ? "mt-6" : ""}>
+              <QuizRunner quiz={lesson.quiz} pathId={path.id} nextHref={nextHref} completed={lesson.completed} />
+            </div>
+          ) : (
+            <div className="htb-card border-htb-amber/40 p-4 mt-6 htb-mono text-xs text-htb-amber">! this quiz has not been built yet</div>
+          ))}
+
+        {lesson.type !== "READING" && lesson.type !== "VIDEO" && lesson.type !== "QUIZ" && (
           <div className="htb-card border-htb-amber/40 p-4 mt-6 htb-mono text-xs text-htb-amber">
             ! {lesson.type.toLowerCase()} lessons are not playable yet (arrives in a later Learn phase)
           </div>

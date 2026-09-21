@@ -60,9 +60,31 @@ export const PATH_BY_ID = /* GraphQL */ `
   query PathById($id: ID!) { pathById(id: $id) { ...PathTree } }
 `;
 
+const QUIZ_FIELDS = /* GraphQL */ `
+  fragment QuizFields on Quiz {
+    id lessonId passScore shuffle myAttemptCount attemptCount passedCount
+    myBestAttempt { id score passed submittedAt }
+    questions { id position promptMd kind points options { id position textMd correct } }
+  }
+`;
+
 export const LESSON_BY_ID = /* GraphQL */ `
   ${LESSON_SUMMARY}
-  query LessonById($id: ID!) { lesson(id: $id) { ...LessonSummary contentMd videoUrl } }
+  ${QUIZ_FIELDS}
+  query LessonById($id: ID!) { lesson(id: $id) { ...LessonSummary contentMd videoUrl quiz { ...QuizFields } } }
+`;
+
+export const SUBMIT_QUIZ = /* GraphQL */ `
+  mutation SubmitQuiz($quizId: ID!, $answers: [AnswerInput!]!, $pathId: ID) {
+    submitQuiz(quizId: $quizId, answers: $answers, pathId: $pathId) {
+      id score passed submittedAt results { questionId correct pointsEarned points }
+    }
+  }
+`;
+
+export const UPSERT_QUIZ = /* GraphQL */ `
+  ${QUIZ_FIELDS}
+  mutation UpsertQuiz($input: QuizInput!) { upsertQuiz(input: $input) { ...QuizFields } }
 `;
 
 export const MY_ENROLLMENTS = /* GraphQL */ `
