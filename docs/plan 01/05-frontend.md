@@ -22,10 +22,11 @@ The session cookie is turned into `Authorization` by `forwardToGateway` (Plan 00
 | `/learn/roadmaps/[slug]` | server | `roadmap(slug)` | ordered courses with per-course progress, required badge, roadmap % |
 | `/learn/courses/[slug]` | server + client island | `course(slug)` | syllabus (modules → lessons with type icon and status), enroll button, progress bar |
 | `/learn/courses/[slug]/lessons/[id]` | client | `lesson(id)` + type-specific mutation | the lesson player (see §3) |
-| `/learn/projects` | client | `mySubmissions` | learner's submission history and feedback |
+| `/learn/projects` | client | `myProjects` | learner's portfolio: every project they have a workspace for, repo links, shared flag, any author notes |
+| `/learn/courses/[slug]/modules/[id]/showcase` | server | `module { project { showcase } }` | peers' shared builds for one project (only when `visibility = PEERS` and the caller has started the module); names enriched from the portal member list |
 | `/learn/admin` | client, `isAdmin` only | author queries | content tree editor: roadmaps → courses → modules → lessons; publish toggles |
-| `/learn/admin/courses/[id]` | client | `upsert*`, `reorder` | course editor: modules/lessons with drag-reorder; typed lesson sub-editors (quiz builder, lab form with plaintext flags, project brief) |
-| `/learn/admin/review` | client | `submissionQueue`, `reviewSubmission` | project review queue |
+| `/learn/admin/courses/[id]` | client | `upsert*`, `reorder` | course editor: modules/lessons with drag-reorder; typed sub-editors (quiz builder, lab form with plaintext flags, **project form + spec tree editor on the module**) |
+| `/learn/admin/projects/[id]/workspaces` | client | `projectWorkspaces`, `leaveProjectFeedback` | everyone's workspaces on one project; optional notes (no approve/reject) |
 | `/learn/admin/labs` | client | `adminLabSessions`, `adminStopLab` | running sessions, force stop |
 
 Auth gating: pages that need a session redirect to `/signin` when `useAuth().user` is null (client) or when `getSessionToken()` is null (server). Admin routes additionally check `isAdmin`; the backend enforces regardless.
@@ -38,7 +39,9 @@ Auth gating: pages that need a session redirect to `/signin` when `useAuth().use
 | `VIDEO` | embedded player (YouTube/Vimeo URL → iframe; direct URL → `<video>`), notes below | "Mark complete" |
 | `QUIZ` | one question per step, radio/checkbox by `kind`, submit at end → score, pass/fail, retry | `submitQuiz` (auto-completes on pass) |
 | `LAB` | brief; **Start lab** → status pill (STARTING/RUNNING, countdown to `expiresAt`), endpoint with copy button; task list with flag inputs; **Stop** | `startLab`, `submitFlag`, `stopLab`; polls `lesson { lab { mySession } }` every 3 s while STARTING/RUNNING |
-| `PROJECT` | brief + rubric; form (repo URL / markdown write-up per `deliverable`); status timeline with feedback | `submitProject`; resubmit when `CHANGES_REQUESTED` |
+| `PROJECT` | *(revised 2026-09-21)* brief, then the **spec viewer**: a two-pane file-tree browser built from `ProjectDoc.path` (folders fold from the segments; `DOC` renders markdown, `VIDEO` renders the embedded player + notes), deep-linkable via `?doc=<path>`. Below: deliverable checklist ("repo URL ✓ / write-up ✗") reading from the workspace | "Mark complete" → `completeLesson`, **disabled with the reason until `Project.deliverableMet`**. No submit, no review. |
+
+**Project workspace card.** When the current module has a `project`, every lesson in that module (not only the `PROJECT` one) shows a persistent card at the top of the sidebar: project title → brief, repo URL field, notes field, **share with peers** toggle (only when `visibility = PEERS`), "open showcase" link, and any author note. Saves with `saveWorkspace` on blur. The artifact follows the learner through every step, and for spec-only projects it is the only interactive element besides the spec viewer.
 
 Navigation: prev/next lesson across modules; sidebar syllabus with status icons; completing a lesson advances automatically.
 
@@ -48,7 +51,7 @@ All `*_md` fields are author-written and rendered in the browser with `react-mar
 
 ## 5. Components (new)
 
-`RoadmapCard`, `CourseCard`, `ProgressBar`, `LessonTypeIcon`, `SyllabusTree`, `MarkdownView`, `QuizRunner`, `LabPanel` (status, countdown, endpoint, tasks), `SubmissionTimeline`, `ContentTreeEditor`, `QuizBuilder`, `LabForm`, `ProjectForm`, `ReviewCard`. Styling stays on `htb-*` tokens; lesson types map to badge colours (`READING` green, `VIDEO` cyan, `QUIZ` purple, `LAB` amber, `PROJECT` magenta).
+`RoadmapCard`, `CourseCard`, `ProgressBar`, `LessonTypeIcon`, `SyllabusTree`, `MarkdownView`, `QuizRunner`, `LabPanel` (status, countdown, endpoint, tasks), `ProjectSpecViewer` (file tree + document/video pane), `ProjectWorkspaceCard`, `ShowcaseGrid`, `ContentTreeEditor`, `QuizBuilder`, `LabForm`, `ProjectForm` (brief, deliverable, visibility, feedback), `SpecTreeEditor` (add folder/doc/video, rename path, reorder, markdown preview). Styling stays on `htb-*` tokens; lesson types map to badge colours (`READING` green, `VIDEO` cyan, `QUIZ` purple, `LAB` amber, `PROJECT` magenta); a module with a project shows a magenta "project" badge on the syllabus.
 
 ## 6. Dashboard integration
 

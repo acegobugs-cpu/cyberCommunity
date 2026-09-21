@@ -14,7 +14,7 @@ gantt
     L3 Roadmaps                              :l3, after l2, 1
     section Assessment
     L4 Quizzes                               :l4, after l2, 2
-    L5 Projects & review                     :l5, after l4, 2
+    L5 Project-based learning                :l5, after l4, 2
     section Hands-on
     L6 Labs + lab-runner (Go)                :l6, after l3, 4
     section Finish
@@ -127,7 +127,24 @@ Original plan:
 
 **Done when:** a USER fails a quiz at 60 %, retries, passes at 80 %, and the lesson flips to completed; the author sees attempt counts.
 
-## L5 — Projects & review
+## L5 — Project-based learning *(revised 2026-09-21; replaces "Projects & review")*
+
+**Decision:** projects are things learners **build on their own machine in their own repo**, following a specification the club provides. There is **no grading, no approval queue, no rubric**. Completion is self-attested once the declared deliverable (repo URL / write-up) is recorded. Peers may **see** each other's builds when the author allows it and the learner opts in; peers do not assess. Authors may leave an optional note; it gates nothing.
+
+- Migration **V5** (real sequence): `projects(module_id UNIQUE, title, brief_md, deliverable REPO_URL|WRITEUP|BOTH|NONE, visibility PRIVATE|PEERS, feedback NONE|OPTIONAL)`, `project_docs(path, kind DOC|VIDEO, title, content_md, video_url, position)`, `project_workspaces(user_id, project_id, repo_url, writeup_md, shared, feedback_md, feedback_by, feedback_at)` — see [03-data-and-migrations.md](03-data-and-migrations.md#v6--projects-phase-l5). No `project_submissions`.
+- **The module is the project.** Two shapes, one model:
+  - *Guided*: the module's lessons walk through the build step by step (`READING`/`VIDEO`: "1. gateway skeleton", "2. host-based routing", …) and end in one `PROJECT` lesson ("ship it").
+  - *Spec-only*: the module has a single `PROJECT` lesson; everything the learner needs is the **specification** — a tree of documents rendered like a repository (folders/subfolders/files) and/or a series of **tutorial videos** — and they do all the work outside the app.
+- Schema: `Module.project`, `Project{docs, myWorkspace, deliverableMet, showcase}`, `ProjectDoc`, `ProjectWorkspace`, `myProjects`; learner `saveWorkspace(projectId, repoUrl, writeupMd, shared)`; `completeLesson` accepts `PROJECT` lessons iff `deliverableMet` (`BAD_REQUEST` with the missing item otherwise) and then follows the normal `completed_lessons` → trigger path; author `upsertProject`, `setProjectDocs` (replace-all tree), `projectWorkspaces(projectId)`, `leaveProjectFeedback` (only when `feedback = OPTIONAL`).
+- Visibility is a **two-key lock**: `projects.visibility = PEERS` (author) **and** `workspaces.shared = true` (learner). Default closed on both. The showcase is readable only by learners who have a `module_progress` row for the module — you must have started the project to browse others' builds. Workspaces are otherwise visible only to their owner and to authors.
+- Publish guard: a module containing a `PROJECT` lesson needs a `projects` row (same rule as quizzes); a module has at most one `PROJECT` lesson.
+- Names in the showcase: Learn stores only `user_id`; the frontend enriches from the portal member list (`/api/members`). No identity batch endpoint needed for L5.
+- Frontend: `ProjectSpecViewer` (file-tree pane + document/video pane, deep-linkable `?doc=path`) inside the `PROJECT` lesson; `ProjectWorkspaceCard` pinned in the sidebar on every lesson of a project module; `/learn/projects` portfolio; `/paths/[slug]/modules/[id]/showcase`; admin `ProjectForm` + `SpecTreeEditor` on the module in `/admin/paths/[id]`; `/admin/projects/[id]/workspaces` for optional notes.
+- Tests: `deliverable` enforcement (`REPO_URL` blocks completion without a URL; `NONE` never blocks); two-key visibility (author PEERS + learner shared, each alone hides); started-module gate on `showcase`; feedback never changes completion; a USER cannot read another's unshared workspace; spec tree replace-all preserves workspaces; publish guard.
+
+**Done when:** an author publishes a spec-only project ("multi-service Java web app with subdomains") as a folder tree of markdown plus two tutorial videos; a USER browses the tree, builds it locally, records their repo URL, marks the project complete and the module/path progress moves; a second USER who has started the module sees the first one's shared repo in the showcase, while a third who hasn't cannot.
+
+<details><summary>Original L5 (superseded)</summary>
 
 - Migration **V6**.
 - Schema: `Project`, `ProjectSubmission`, `submitProject`, `mySubmissions`; author `upsertProject`, `submissionQueue`, `reviewSubmission`. State machine enforced in `ProjectService`; `APPROVED` → lesson `COMPLETED`.
@@ -136,6 +153,8 @@ Original plan:
 - Tests: transitions (invalid ones → `BAD_REQUEST`), resubmission after `CHANGES_REQUESTED`, reviewer recorded, USER cannot see others' submissions.
 
 **Done when:** a USER submits a repo URL + write-up, an ADMIN requests changes with feedback, the USER resubmits, the ADMIN approves, and the project lesson completes.
+
+</details>
 
 ## L6 — Labs + lab-runner (Go)
 
@@ -160,7 +179,7 @@ Original plan:
 ## L7 — Polish, seed content, snapshot
 
 - `@BatchMapping` audit (no N+1 in the catalogue and course pages); simple `search` on courses (`ILIKE` on title/tags).
-- Seed script: one roadmap, two courses, a quiz, a project, the hello-flag lab (`infra/seed/learn/*.graphql` executed via a small Node script against the BFF as ADMIN).
+- Seed script: one roadmap, two paths, a quiz, a spec-only project (folder tree + one video), the hello-flag lab (`infra/seed/learn/*.graphql` executed via a small Node script against the BFF as ADMIN).
 - Playwright smoke suite replacing `browser-test.mjs`/`selenium-test.mjs`.
 - `docs/timeline/<date>/` snapshot for Learn + lab-runner; `gaps.md`; update `context.md` (ports 9010, new rules: runner only via Learn, Docker socket only in runner).
 

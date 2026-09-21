@@ -18,7 +18,7 @@ Every resolver's service method starts with `auth.require(...)` exactly as in Po
 | Policy | Role | Applies to |
 | :-- | :-- | :-- |
 | `LEARNER` = `MEMBER.or(ADMIN)` | `USER` or `ADMIN` | all queries; enroll/complete/attempt/submit/start-lab/submit-flag mutations |
-| `AUTHOR` = `ADMIN` | `ADMIN` | create/update/publish/archive content; review submissions; `adminLabSessions` |
+| `AUTHOR` = `ADMIN` | `ADMIN` | create/update/publish/archive content (incl. project specs); see all workspaces and leave optional notes; `adminLabSessions` |
 
 Visibility rule enforced in repositories, not resolvers: learner queries always add `published = true`; author queries pass `includeUnpublished = true`. Ownership rule: learner mutations operate on `UserContext.get()` only — there is no `userId` argument on them.
 
@@ -34,9 +34,12 @@ enum Difficulty { BEGINNER INTERMEDIATE ADVANCED }
 enum LessonType { READING VIDEO QUIZ LAB PROJECT }
 enum ProgressStatus { NOT_STARTED STARTED COMPLETED }
 enum LabSessionStatus { STARTING RUNNING STOPPED EXPIRED FAILED }
-enum SubmissionStatus { SUBMITTED IN_REVIEW APPROVED CHANGES_REQUESTED }
 enum QuestionKind { SINGLE MULTI }
-enum Deliverable { REPO_URL WRITEUP BOTH }
+# projects (revised 2026-09-21): no grading, no review
+enum Deliverable { REPO_URL WRITEUP BOTH NONE }
+enum ProjectVisibility { PRIVATE PEERS }
+enum ProjectFeedback { NONE OPTIONAL }
+enum ProjectDocKind { DOC VIDEO }
 
 # ---------- content ----------
 type Roadmap {
@@ -55,12 +58,15 @@ type Course {
   enrollment: Enrollment      # caller's, null if none
   progress: Float!            # 0..1 for the caller
 }
-type Module { id: ID! title: String! descriptionMd: String position: Int! lessons: [Lesson!]! }
+type Module {
+  id: ID! title: String! descriptionMd: String position: Int! lessons: [Lesson!]!
+  project: Project            # non-null ⇒ this module IS a project (guided or spec-only)
+}
 
 type Lesson {
   id: ID! title: String! type: LessonType! position: Int! estimatedMinutes: Int
   contentMd: String videoUrl: String
-  quiz: Quiz lab: Lab project: Project
+  quiz: Quiz lab: Lab         # PROJECT lessons carry nothing themselves; the project is on the module
   myProgress: ProgressStatus!
 }
 
@@ -78,11 +84,19 @@ type Lab {
 type LabTask { id: ID! position: Int! promptMd: String! points: Int! required: Boolean! }
 type LabSession { id: ID! status: LabSessionStatus! endpoint: String expiresAt: DateTime failReason: String }
 
-type Project { id: ID! title: String! briefMd: String! rubricMd: String deliverable: Deliverable! mySubmissions: [ProjectSubmission!]! }
-type ProjectSubmission {
-  id: ID! repoUrl: String writeupMd: String status: SubmissionStatus!
-  feedbackMd: String submittedAt: DateTime! reviewedAt: DateTime
-  user: UserRef!             # resolved from identity (author view)
+type Project {
+  id: ID! moduleId: ID! title: String! briefMd: String!
+  deliverable: Deliverable! visibility: ProjectVisibility! feedback: ProjectFeedback!
+  docs: [ProjectDoc!]!        # the specification: flat list ordered by position; UI folds `path` into a tree
+  myWorkspace: ProjectWorkspace          # caller's, null until first save
+  deliverableMet: Boolean!               # caller's workspace satisfies `deliverable` (drives the PROJECT lesson's Mark complete)
+  showcase: [ProjectWorkspace!]!         # [] unless visibility = PEERS and caller has started the module
+}
+type ProjectDoc { id: ID! path: String! kind: ProjectDocKind! title: String! contentMd: String videoUrl: String position: Int! }
+type ProjectWorkspace {
+  userId: ID! repoUrl: String writeupMd: String shared: Boolean! updatedAt: DateTime!
+  feedbackMd: String feedbackAt: DateTime          # optional author note; never gates anything
+  user: UserRef                                    # resolved by the frontend from the portal member list (Learn stores only user_id)
 }
 type UserRef { id: ID! username: String! }
 
@@ -96,10 +110,10 @@ type Query {
   course(slug: String!): Course
   lesson(id: ID!): Lesson
   myEnrollments: [Course!]!
-  mySubmissions: [ProjectSubmission!]!
+  myProjects: [Project!]!                       # projects the caller has a workspace for (their portfolio)
 
   # AUTHOR
-  submissionQueue(status: SubmissionStatus = SUBMITTED): [ProjectSubmission!]!
+  projectWorkspaces(projectId: ID!): [ProjectWorkspace!]!   # everyone's workspaces on one project (to leave notes)
   adminLabSessions(status: LabSessionStatus): [AdminLabSession!]!
 }
 type AdminLabSession { session: LabSession! lab: Lab! user: UserRef! startedAt: DateTime! }
@@ -107,12 +121,12 @@ type AdminLabSession { session: LabSession! lab: Lab! user: UserRef! startedAt: 
 # ---------- learner mutations (LEARNER) ----------
 type Mutation {
   enroll(courseId: ID!): Enrollment!
-  completeLesson(lessonId: ID!): Lesson!                 # READING / VIDEO only
+  completeLesson(lessonId: ID!): Lesson!                 # READING / VIDEO; PROJECT when Project.deliverableMet
   submitQuiz(quizId: ID!, answers: [AnswerInput!]!): QuizAttempt!
   startLab(labId: ID!): LabSession!
   stopLab(sessionId: ID!): LabSession!
   submitFlag(sessionId: ID!, taskId: ID!, flag: String!): FlagResult!
-  submitProject(projectId: ID!, repoUrl: String, writeupMd: String): ProjectSubmission!
+  saveWorkspace(projectId: ID!, repoUrl: String, writeupMd: String, shared: Boolean): ProjectWorkspace!   # upsert; `shared` ignored unless visibility = PEERS
 
   # ---------- author mutations (AUTHOR) ----------
   upsertRoadmap(input: RoadmapInput!): Roadmap!
@@ -123,15 +137,16 @@ type Mutation {
   reorder(parentId: ID!, kind: ReorderKind!, orderedIds: [ID!]!): Boolean!
   upsertQuiz(input: QuizInput!): Quiz!                   # questions + options in one payload
   upsertLab(input: LabInput!): Lab!                      # tasks with plaintext flags → hashed server-side
-  upsertProject(input: ProjectInput!): Project!
+  upsertProject(input: ProjectInput!): Project!          # { moduleId, title, briefMd, deliverable, visibility, feedback }
+  setProjectDocs(projectId: ID!, docs: [ProjectDocInput!]!): Project!   # replace-all spec tree; { path, kind, title, contentMd, videoUrl }
+  leaveProjectFeedback(projectId: ID!, userId: ID!, feedbackMd: String): ProjectWorkspace!   # only when Project.feedback = OPTIONAL; null clears
   publish(kind: PublishKind!, id: ID!, published: Boolean!): Boolean!
-  reviewSubmission(submissionId: ID!, decision: SubmissionStatus!, feedbackMd: String): ProjectSubmission!
   adminStopLab(sessionId: ID!): LabSession!
 }
 
 input AnswerInput { questionId: ID! optionIds: [ID!]! }
 type FlagResult { correct: Boolean! taskId: ID! labComplete: Boolean! lessonProgress: ProgressStatus! }
-enum ReorderKind { ROADMAP_ITEMS MODULES LESSONS QUESTIONS TASKS }
+enum ReorderKind { ROADMAP_ITEMS MODULES LESSONS QUESTIONS TASKS PROJECT_DOCS }
 enum PublishKind { ROADMAP COURSE }
 # *Input types mirror the tables in 01-domain-model.md; `id` optional → insert, present → update.*
 ```

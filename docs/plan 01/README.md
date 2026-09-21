@@ -22,7 +22,7 @@
 
 | Component | Language | Reason |
 | :-- | :-- | :-- |
-| `learn` service (content, progress, quiz grading, project review, flag checks, lab session bookkeeping) | **Java / Spring Boot** (existing) | CRUD + authorization + transactions — nothing here needs another runtime |
+| `learn` service (content, progress, quiz grading, project specs & workspaces, flag checks, lab session bookkeeping) | **Java / Spring Boot** (existing) | CRUD + authorization + transactions — nothing here needs another runtime |
 | `lab-runner` (start/stop/inspect isolated containers with TTL) | **Go** | Docker Engine SDK, cgroup/netns control, goroutine-based reaper, static binary. Domain-neutral infrastructure; **the same component the README calls "CTF infrastructure controller"** — Challenge (Plan 02) reuses it |
 | Coding exercises inside lessons | — (deferred) | would reuse the Python judge from Plan 02; lesson type `exercise` is reserved, not built here |
 
